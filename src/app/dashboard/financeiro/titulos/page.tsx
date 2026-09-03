@@ -18,7 +18,7 @@ import {
   TableCell,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { TituloFormDialog } from "@/components/financeiro/titulo-form-dialog";
+import { TituloFormDialog, type TituloInicial } from "@/components/financeiro/titulo-form-dialog";
 import { ConfirmActionButton } from "@/components/shared/confirm-action-button";
 import { formatCurrencyBRL, formatDatePtBR } from "@/lib/utils";
 import { CheckCircle2, XCircle } from "lucide-react";
@@ -178,6 +178,26 @@ export default async function TitulosPage() {
                         <TableCell className="text-right">
                           {t.status === "PENDENTE" && (
                             <div className="flex justify-end gap-1">
+                              <TituloFormDialog
+                                tipoInicial={t.tipo}
+                                condominios={condominios}
+                                categorias={categorias}
+                                fornecedores={fornecedores}
+                                titulo={
+                                  {
+                                    id: t.id,
+                                    tipo: t.tipo,
+                                    condominioId: t.condominioId,
+                                    descricao: t.descricao,
+                                    valor: t.valor.toString(),
+                                    dataVencimento: t.dataVencimento,
+                                    categoriaId: t.categoriaId,
+                                    fornecedorId: t.fornecedorId,
+                                    recorrente: t.recorrente,
+                                    observacoes: t.observacoes,
+                                  } satisfies TituloInicial
+                                }
+                              />
                               <ConfirmActionButton
                                 action={darBaixaTitulo.bind(null, t.id)}
                                 titulo="Confirmar baixa"
