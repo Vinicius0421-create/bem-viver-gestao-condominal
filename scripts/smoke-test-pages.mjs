@@ -1,6 +1,15 @@
+import "dotenv/config";
 import { chromium } from "playwright";
 
 const BASE = "http://localhost:3000";
+// SEG-1: ver comentário equivalente em scripts/smoke-test.mjs.
+const SENHA_ADMIN = process.env.SEED_ADMIN_PASSWORD;
+if (!SENHA_ADMIN) {
+  console.error(
+    "SEED_ADMIN_PASSWORD não está definida no .env — defina-a com a senha do usuário administrador local antes de rodar o smoke test."
+  );
+  process.exit(1);
+}
 const ROTAS = [
   "/dashboard",
   "/dashboard/condominios",
@@ -26,7 +35,7 @@ async function main() {
 
   await page.goto(`${BASE}/login`, { waitUntil: "networkidle" });
   await page.fill('input[name="email"]', "bemviverassessoria.cond@gmail.com");
-  await page.fill('input[name="senha"]', "BemViver@2026");
+  await page.fill('input[name="senha"]', SENHA_ADMIN);
   await page.click('button[type="submit"]');
   await page.waitForURL(`${BASE}/dashboard`, { timeout: 10000 });
 

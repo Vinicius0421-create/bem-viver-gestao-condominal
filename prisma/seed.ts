@@ -1,4 +1,5 @@
 import "dotenv/config";
+import crypto from "node:crypto";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
 import { hashPassword } from "../src/lib/password";
@@ -37,7 +38,16 @@ async function main() {
   // --------------------------------------------------------------------
   // 1. Usuário administrador
   // --------------------------------------------------------------------
-  const senhaProvisoria = "BemViver@2026";
+  // SEG-1: nunca hardcodar a senha provisória no código-fonte — ela ficava
+  // versionada em texto puro, visível a qualquer pessoa com acesso ao
+  // repositório (e, antes da correção do incidente de 02/09/2026, era o
+  // único lugar onde essa senha existia fora do banco de produção).
+  // Se `SEED_ADMIN_PASSWORD` não estiver definida, gera uma senha aleatória
+  // forte e a imprime uma única vez no log — quem rodar o seed precisa
+  // copiá-la dali e trocar no primeiro login (ver seção 6 de
+  // sistema-prestacao-contas-DEPLOY.md).
+  const senhaGeradaAutomaticamente = !process.env.SEED_ADMIN_PASSWORD;
+  const senhaProvisoria = process.env.SEED_ADMIN_PASSWORD ?? crypto.randomBytes(12).toString("base64url");
   const admin = await prisma.usuario.upsert({
     where: { email: "bemviverassessoria.cond@gmail.com" },
     update: {},
@@ -48,7 +58,14 @@ async function main() {
       papel: "ADMIN",
     },
   });
-  console.log(`Usuário administrador: ${admin.email} (senha provisória: ${senhaProvisoria})`);
+  if (senhaGeradaAutomaticamente) {
+    console.log(
+      `Usuário administrador: ${admin.email} (SEED_ADMIN_PASSWORD não definida — senha temporária gerada: ${senhaProvisoria})`
+    );
+    console.log("⚠️  Guarde essa senha agora — ela não fica salva em nenhum arquivo, e não será exibida de novo. Troque-a no primeiro login.");
+  } else {
+    console.log(`Usuário administrador: ${admin.email} (senha definida via SEED_ADMIN_PASSWORD)`);
+  }
 
   // --------------------------------------------------------------------
   // 2. Categorias financeiras padrão

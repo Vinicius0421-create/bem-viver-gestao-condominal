@@ -1,6 +1,17 @@
+import "dotenv/config";
 import { chromium } from "playwright";
 
 const BASE = "http://localhost:3000";
+// SEG-1: nunca hardcodar a senha do usuário administrador em código
+// versionado — usa a mesma variável de ambiente lida por `prisma/seed.ts`
+// (SEED_ADMIN_PASSWORD), definida no `.env` local.
+const SENHA_ADMIN = process.env.SEED_ADMIN_PASSWORD;
+if (!SENHA_ADMIN) {
+  console.error(
+    "SEED_ADMIN_PASSWORD não está definida no .env — defina-a com a senha do usuário administrador local antes de rodar o smoke test."
+  );
+  process.exit(1);
+}
 
 async function main() {
   const browser = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium" });
@@ -14,7 +25,7 @@ async function main() {
   console.log("1. Login...");
   await page.goto(`${BASE}/login`, { waitUntil: "networkidle" });
   await page.fill('input[name="email"]', "bemviverassessoria.cond@gmail.com");
-  await page.fill('input[name="senha"]', "BemViver@2026");
+  await page.fill('input[name="senha"]', SENHA_ADMIN);
   await page.click('button[type="submit"]');
   await page.waitForURL(`${BASE}/dashboard`, { timeout: 10000 });
   const dashResp = await page.goto(`${BASE}/dashboard`, { waitUntil: "networkidle" });
