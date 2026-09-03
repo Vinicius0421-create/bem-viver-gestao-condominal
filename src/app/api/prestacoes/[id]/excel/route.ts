@@ -1,11 +1,19 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { verifySession } from "@/lib/dal";
+import { verifySession, papelAtendeMinimo } from "@/lib/dal";
 import { competenciaLabel } from "@/lib/utils";
 import { gerarExcelPrestacaoContas } from "@/lib/excel/prestacao-contas-excel";
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
-  await verifySession();
+  // SEG-9: mesma correção aplicada à rota de PDF — checagem explícita de
+  // papel mínimo além da sessão válida (ver comentário em pdf/route.ts).
+  const session = await verifySession();
+  if (!papelAtendeMinimo(session.papel, "OPERACIONAL")) {
+    return NextResponse.json(
+      { error: "Ação não permitida para o seu perfil de acesso." },
+      { status: 403 }
+    );
+  }
   const { id } = await params;
 
   const prestacao = await prisma.prestacaoContas.findUnique({
