@@ -56,14 +56,19 @@ export async function salvarFornecedor(
   return { success: true };
 }
 
-export async function inativarFornecedor(id: string) {
+// UX-1: antes, só existia `inativarFornecedor` — uma via de mão única sem
+// nenhum caminho de reversão pela interface (diferente do padrão já usado
+// para Usuários, que tem `alternarAtivoUsuario`). Agora aceita os dois
+// sentidos, mantendo o mesmo registro de auditoria em ambos os casos.
+export async function alternarAtivoFornecedor(id: string, ativo: boolean) {
   const session = await requireRole("ADMIN");
-  await prisma.fornecedor.update({ where: { id }, data: { ativo: false } });
+  await prisma.fornecedor.update({ where: { id }, data: { ativo } });
   await registrarAuditoria({
     usuarioId: session.userId,
-    acao: "EXCLUSAO",
+    acao: ativo ? "ATUALIZACAO" : "EXCLUSAO",
     entidade: "Fornecedor",
     entidadeId: id,
+    dadosDepois: { ativo },
   });
   revalidatePath("/dashboard/fornecedores");
 }

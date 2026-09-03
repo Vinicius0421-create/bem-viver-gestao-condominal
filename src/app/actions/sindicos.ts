@@ -59,14 +59,18 @@ export async function salvarSindico(
   return { success: true };
 }
 
-export async function inativarSindico(id: string) {
+// UX-1: mesma correção aplicada a Fornecedores — reversão de inativação
+// pela interface, no mesmo padrão já usado para Usuários.
+export async function alternarAtivoSindico(id: string, ativo: boolean) {
   const session = await requireRole("ADMIN");
-  await prisma.sindico.update({ where: { id }, data: { ativo: false } });
+  await prisma.sindico.update({ where: { id }, data: { ativo } });
   await registrarAuditoria({
     usuarioId: session.userId,
-    acao: "EXCLUSAO",
+    acao: ativo ? "ATUALIZACAO" : "EXCLUSAO",
     entidade: "Sindico",
     entidadeId: id,
+    dadosDepois: { ativo },
   });
   revalidatePath("/dashboard/sindicos");
+  revalidatePath("/dashboard/condominios");
 }
