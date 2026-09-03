@@ -96,12 +96,19 @@ export default async function DashboardPage() {
       orderBy: [{ competenciaAno: "desc" }, { competenciaMes: "desc" }],
       take: 8,
     }),
+    // PERF-1: o `take: 20` aqui já foi um bug de truncamento silencioso —
+    // acima de 20 condomínios ativos, o "Saldo consolidado" do painel
+    // passava a somar só os 20 primeiros (por ordem de competência mais
+    // recente), subestimando o saldo real sem nenhum aviso visual. Como
+    // `distinct: ["condominioId"]` já limita o resultado a no máximo uma
+    // linha por condomínio — nunca mais que o total de condomínios
+    // cadastrados —, não há necessidade de paginação aqui: essa é uma
+    // consulta de agregação para uma soma, não uma listagem para a tela.
     prisma.prestacaoContas.findMany({
       where: { status: "PUBLICADA" },
       include: { condominio: { select: { nome: true } } },
       orderBy: [{ competenciaAno: "desc" }, { competenciaMes: "desc" }],
       distinct: ["condominioId"],
-      take: 20,
     }),
   ]);
 
