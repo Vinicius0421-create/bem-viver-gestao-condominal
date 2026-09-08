@@ -50,6 +50,7 @@ export default async function DashboardPage() {
 
   const hoje = new Date();
   const em7dias = new Date(hoje.getTime() + 7 * 24 * 60 * 60 * 1000);
+  const em15dias = new Date(hoje.getTime() + 15 * 24 * 60 * 60 * 1000);
   const em30dias = new Date(hoje.getTime() + 30 * 24 * 60 * 60 * 1000);
   const em60dias = new Date(hoje.getTime() + 60 * 24 * 60 * 60 * 1000);
   const periodo = ultimosMeses(6);
@@ -64,6 +65,7 @@ export default async function DashboardPage() {
     ultimasPrestacoesPublicadasPorCondominio,
     documentosVencendo,
     contratosVencendo,
+    assembleiasProximas,
   ] = await Promise.all([
     prisma.condominio.count({ where: { status: "ATIVO" } }),
     prisma.lancamentoFinanceiro.groupBy({
@@ -119,6 +121,9 @@ export default async function DashboardPage() {
     }),
     prisma.contrato.count({
       where: { ativo: true, dataFim: { not: null, lte: em60dias } },
+    }),
+    prisma.assembleia.count({
+      where: { status: "AGENDADA", dataHora: { gte: hoje, lte: em15dias } },
     }),
   ]);
 
@@ -248,6 +253,10 @@ export default async function DashboardPage() {
               <p className="text-xs text-muted-foreground">Contratos vencidos/vencendo (60 dias)</p>
               <p className="text-lg font-semibold text-warning">{contratosVencendo}</p>
             </div>
+            <div className="rounded-lg border border-warning/30 bg-warning/5 p-3">
+              <p className="text-xs text-muted-foreground">Assembleias agendadas (15 dias)</p>
+              <p className="text-lg font-semibold text-warning">{assembleiasProximas}</p>
+            </div>
             <Link
               href="/dashboard/financeiro/titulos"
               className="flex items-center justify-center gap-1 text-sm text-bv-gold-600 hover:underline"
@@ -265,6 +274,12 @@ export default async function DashboardPage() {
               className="flex items-center justify-center gap-1 text-sm text-bv-gold-600 hover:underline"
             >
               Ver Contratos <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+            <Link
+              href="/dashboard/assembleias"
+              className="flex items-center justify-center gap-1 text-sm text-bv-gold-600 hover:underline"
+            >
+              Ver Assembleias <ArrowRight className="h-3.5 w-3.5" />
             </Link>
           </CardContent>
         </Card>

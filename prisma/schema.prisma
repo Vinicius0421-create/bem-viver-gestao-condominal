@@ -125,6 +125,7 @@ model Condominio {
   fundoReserva     MovimentoFundoReserva[]
   documentos       Documento[]
   contratos        Contrato[]
+  assembleias      Assembleia[]
 
   @@map("condominios")
 }
@@ -465,6 +466,64 @@ model Contrato {
   @@index([condominioId, ativo])
   @@index([condominioId, dataFim])
   @@map("contratos")
+}
+
+// ----------------------------------------------------------------------------
+// ASSEMBLEIAS & ATAS
+// ----------------------------------------------------------------------------
+
+enum TipoAssembleia {
+  ORDINARIA
+  EXTRAORDINARIA
+}
+
+enum StatusAssembleia {
+  AGENDADA
+  REALIZADA
+  CANCELADA
+}
+
+// Assembleias e atas (Sprint 7) — diferente de Documento/Contrato/
+// MovimentoFundoReserva, este modelo não existia como "estrutura pronta"
+// da Fase 1: é schema novo, escolhido entre as opções de novo módulo
+// (manutenções, ocorrências, assembleias, comunicados, veículos/pets —
+// seção 6 de EVOLUCAO-PLATAFORMA.md) por já ser um serviço explícito do
+// escopo da Bem Viver ("suporte para realização de assembleias").
+//
+// Cobre o ciclo agendar → convocar → realizar → registrar ata. Reaproveita
+// o mesmo bucket/padrão de upload de Documentos e Contratos (`arquivoUrl`
+// guarda a chave do objeto, nunca uma URL pública; pastaBase="assembleias")
+// — nenhuma decisão de infraestrutura nova. Votação digital foi
+// conscientemente deixada de fora do escopo (o próprio pedido original já
+// reconhecia isso): este módulo registra o evento e a ata, não conduz a
+// assembleia em si.
+//
+// `status` é um enum de 3 estados (não um `ativo: Boolean` como em
+// Contrato) porque há uma transição de negócio real a representar —
+// agendada, realizada ou cancelada — e não apenas um par ligado/desligado.
+// Todas as transições são reversíveis (ver `atualizarStatusAssembleia`),
+// mantendo a mesma filosofia de reversibilidade (UX-1) usada em todo o
+// sistema.
+model Assembleia {
+  id           String           @id @default(cuid())
+  condominioId String
+  condominio   Condominio       @relation(fields: [condominioId], references: [id], onDelete: Cascade)
+  tipo         TipoAssembleia   @default(ORDINARIA)
+  dataHora     DateTime
+  local        String?
+  pauta        String
+  status       StatusAssembleia @default(AGENDADA)
+  arquivoUrl   String?
+  arquivoNome  String?
+  arquivoTipo  String?
+  tamanhoBytes Int?
+  observacoes  String?
+  criadoEm     DateTime         @default(now())
+  atualizadoEm DateTime         @updatedAt
+
+  @@index([condominioId, dataHora])
+  @@index([condominioId, status])
+  @@map("assembleias")
 }
 
 // ----------------------------------------------------------------------------

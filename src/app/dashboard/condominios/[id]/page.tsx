@@ -64,6 +64,10 @@ export default async function CondominioDetalhePage({
   limiteAlertaContratos.setHours(23, 59, 59, 999);
   limiteAlertaContratos.setDate(limiteAlertaContratos.getDate() + 60);
 
+  const limiteAlertaAssembleias = new Date();
+  limiteAlertaAssembleias.setHours(23, 59, 59, 999);
+  limiteAlertaAssembleias.setDate(limiteAlertaAssembleias.getDate() + 15);
+
   const [
     lancamentosRecentes,
     prestacoes,
@@ -74,6 +78,8 @@ export default async function CondominioDetalhePage({
     qtdDocumentosVencendo,
     qtdContratos,
     qtdContratosVencendo,
+    qtdAssembleiasAgendadas,
+    qtdAssembleiasProximas,
   ] = await Promise.all([
       prisma.lancamentoFinanceiro.findMany({
         where: { condominioId: id, excluidoEm: null },
@@ -120,6 +126,14 @@ export default async function CondominioDetalhePage({
           dataFim: { not: null, lte: limiteAlertaContratos },
         },
       }),
+      prisma.assembleia.count({ where: { condominioId: id, status: "AGENDADA" } }),
+      prisma.assembleia.count({
+        where: {
+          condominioId: id,
+          status: "AGENDADA",
+          dataHora: { lte: limiteAlertaAssembleias },
+        },
+      }),
     ]);
 
   const qtdUnidadesInadimplentes = titulosVencidosPorUnidade.length;
@@ -155,7 +169,7 @@ export default async function CondominioDetalhePage({
         </p>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-7">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-8">
         <Card>
           <CardHeader className="pb-1">
             <CardDescription>Síndico responsável</CardDescription>
@@ -246,6 +260,28 @@ export default async function CondominioDetalhePage({
               </CardTitle>
               <Button variant="outline" size="sm" asChild>
                 <Link href={`/dashboard/contratos?condominioId=${id}`}>Ver</Link>
+              </Button>
+            </div>
+          </CardHeader>
+        </Card>
+        <Card>
+          <CardHeader className="pb-1">
+            <CardDescription>Assembleias</CardDescription>
+            <div className="flex items-center justify-between gap-2">
+              <CardTitle
+                className={`text-base ${qtdAssembleiasProximas > 0 ? "text-warning" : ""}`}
+              >
+                {qtdAssembleiasAgendadas > 0
+                  ? `${qtdAssembleiasAgendadas} agendada(s)`
+                  : "Nenhuma agendada"}
+                {qtdAssembleiasProximas > 0 && (
+                  <span className="ml-1.5 text-xs font-normal">
+                    ({qtdAssembleiasProximas} em 15 dias)
+                  </span>
+                )}
+              </CardTitle>
+              <Button variant="outline" size="sm" asChild>
+                <Link href={`/dashboard/assembleias?condominioId=${id}`}>Ver</Link>
               </Button>
             </div>
           </CardHeader>

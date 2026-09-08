@@ -54,6 +54,7 @@ const ENTIDADE_LABEL: Record<string, string> = {
   Morador: "Morador",
   Documento: "Documento",
   Contrato: "Contrato",
+  Assembleia: "Assembleia",
 };
 
 export default async function AuditoriaPage({
