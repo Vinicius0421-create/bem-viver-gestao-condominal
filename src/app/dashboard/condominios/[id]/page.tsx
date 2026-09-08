@@ -56,7 +56,7 @@ export default async function CondominioDetalhePage({
   });
   if (!condominio) notFound();
 
-  const [lancamentosRecentes, prestacoes, agregados] = await Promise.all([
+  const [lancamentosRecentes, prestacoes, agregados, qtdUnidadesCadastradas] = await Promise.all([
     prisma.lancamentoFinanceiro.findMany({
       where: { condominioId: id, excluidoEm: null },
       include: { categoria: true },
@@ -73,6 +73,7 @@ export default async function CondominioDetalhePage({
       where: { condominioId: id, excluidoEm: null },
       _sum: { valor: true },
     }),
+    prisma.unidade.count({ where: { condominioId: id } }),
   ]);
 
   const totalReceitas = Number(
@@ -106,7 +107,7 @@ export default async function CondominioDetalhePage({
         </p>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="pb-1">
             <CardDescription>Síndico responsável</CardDescription>
@@ -129,6 +130,21 @@ export default async function CondominioDetalhePage({
             <CardTitle className="text-base text-destructive">
               {formatCurrencyBRL(totalDespesas)}
             </CardTitle>
+          </CardHeader>
+        </Card>
+        <Card>
+          <CardHeader className="pb-1">
+            <CardDescription>Unidades cadastradas</CardDescription>
+            <div className="flex items-center justify-between gap-2">
+              <CardTitle className="text-base">
+                {qtdUnidadesCadastradas > 0
+                  ? `${qtdUnidadesCadastradas} unidade(s)`
+                  : "Nenhuma ainda"}
+              </CardTitle>
+              <Button variant="outline" size="sm" asChild>
+                <Link href={`/dashboard/condominios/${id}/unidades`}>Gerenciar</Link>
+              </Button>
+            </div>
           </CardHeader>
         </Card>
       </div>
