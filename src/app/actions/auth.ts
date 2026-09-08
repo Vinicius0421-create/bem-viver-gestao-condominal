@@ -22,6 +22,18 @@ import {
 // um pouco para checar a caixa de entrada).
 const VALIDADE_TOKEN_MS = 60 * 60 * 1000;
 
+// Proteção contra força bruta (auditoria de julho/2026, achado levantado na
+// evolução para plataforma — setembro/2026): antes, um e-mail conhecido
+// (ex: o institucional, público no site/Instagram) podia ser alvo de
+// tentativas de senha ilimitadas — só havia registro em auditoria, sem
+// bloqueio. Reaproveita o próprio `LogAuditoria`/`LOGIN_FALHOU` como fonte
+// de verdade (sem tabela nova): acima de `MAX_TENTATIVAS_FALHAS` tentativas
+// malsucedidas dentro da janela, o login é recusado com a mesma mensagem
+// genérica de sempre — não diferencia "bloqueado" de "senha errada" para
+// não dar pista alguma a quem está tentando.
+const JANELA_BLOQUEIO_MS = 15 * 60 * 1000; // 15 minutos
+const MAX_TENTATIVAS_FALHAS = 5;
+
 export async function login(
   _prevState: LoginState,
   formData: FormData
@@ -53,6 +65,18 @@ export async function login(
       dadosDepois: { email },
     });
     return credenciaisInvalidas;
+  }
+
+  const tentativasFalhasRecentes = await prisma.logAuditoria.count({
+    where: {
+      entidade: "Usuario",
+      entidadeId: usuario.id,
+      acao: "LOGIN_FALHOU",
+      criadoEm: { gte: new Date(Date.now() - JANELA_BLOQUEIO_MS) },
+    },
+  });
+  if (tentativasFalhasRecentes >= MAX_TENTATIVAS_FALHAS) {
+    return { error: "Muitas tentativas. Aguarde alguns minutos antes de tentar novamente." };
   }
 
   const senhaOk = await verifyPassword(senha, usuario.senhaHash);
