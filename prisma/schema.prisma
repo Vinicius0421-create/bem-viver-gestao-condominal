@@ -387,21 +387,37 @@ enum CategoriaDocumento {
   COMPROVANTE
   CONVENCAO
   REGIMENTO_INTERNO
+  COMUNICADO
   OUTRO
 }
 
+// Central de Documentos (Sprint 4) — o modelo já existia desde a Fase 1
+// ("estrutura pronta"), mas sem os campos necessários para um upload real
+// (nome original do arquivo, tipo/mime, validade para alertas de vencimento)
+// nem exclusão lógica. `arquivoUrl` passa a guardar a *chave* do objeto no
+// bucket S3-compatível do Railway (não uma URL pública — o bucket é privado;
+// o download é sempre mediado por uma rota autenticada que gera uma URL
+// assinada de curta duração). Ver src/lib/storage.ts.
 model Documento {
   id           String             @id @default(cuid())
   condominioId String?
   condominio   Condominio?        @relation(fields: [condominioId], references: [id])
   nome         String
+  descricao    String?
   categoria    CategoriaDocumento @default(OUTRO)
   arquivoUrl   String
+  arquivoNome  String?
+  arquivoTipo  String?
   tamanhoBytes Int?
+  dataValidade DateTime?
   enviadoPorId String
   enviadoPor   Usuario            @relation("DocumentoEnviadoPor", fields: [enviadoPorId], references: [id])
+  excluidoEm   DateTime?
   criadoEm     DateTime           @default(now())
+  atualizadoEm DateTime           @updatedAt
 
+  @@index([condominioId, categoria])
+  @@index([condominioId, dataValidade])
   @@map("documentos")
 }
 

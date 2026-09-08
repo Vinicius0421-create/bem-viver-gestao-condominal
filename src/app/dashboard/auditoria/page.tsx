@@ -50,6 +50,9 @@ const ENTIDADE_LABEL: Record<string, string> = {
   TituloFinanceiro: "Título financeiro",
   PrestacaoContas: "Prestação de contas",
   Usuario: "Usuário",
+  Unidade: "Unidade",
+  Morador: "Morador",
+  Documento: "Documento",
 };
 
 export default async function AuditoriaPage({

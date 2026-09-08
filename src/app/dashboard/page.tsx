@@ -50,6 +50,7 @@ export default async function DashboardPage() {
 
   const hoje = new Date();
   const em7dias = new Date(hoje.getTime() + 7 * 24 * 60 * 60 * 1000);
+  const em30dias = new Date(hoje.getTime() + 30 * 24 * 60 * 60 * 1000);
   const periodo = ultimosMeses(6);
 
   const [
@@ -60,6 +61,7 @@ export default async function DashboardPage() {
     titulosAtrasados,
     prestacoesPendentes,
     ultimasPrestacoesPublicadasPorCondominio,
+    documentosVencendo,
   ] = await Promise.all([
     prisma.condominio.count({ where: { status: "ATIVO" } }),
     prisma.lancamentoFinanceiro.groupBy({
@@ -109,6 +111,9 @@ export default async function DashboardPage() {
       include: { condominio: { select: { nome: true } } },
       orderBy: [{ competenciaAno: "desc" }, { competenciaMes: "desc" }],
       distinct: ["condominioId"],
+    }),
+    prisma.documento.count({
+      where: { excluidoEm: null, dataValidade: { not: null, lte: em30dias } },
     }),
   ]);
 
@@ -230,11 +235,21 @@ export default async function DashboardPage() {
               <p className="text-xs text-muted-foreground">Prestações aguardando ação</p>
               <p className="text-lg font-semibold">{prestacoesPendentes.length}</p>
             </div>
+            <div className="rounded-lg border border-warning/30 bg-warning/5 p-3">
+              <p className="text-xs text-muted-foreground">Documentos vencidos/vencendo (30 dias)</p>
+              <p className="text-lg font-semibold text-warning">{documentosVencendo}</p>
+            </div>
             <Link
               href="/dashboard/financeiro/titulos"
               className="flex items-center justify-center gap-1 text-sm text-bv-gold-600 hover:underline"
             >
               Ver contas a pagar/receber <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+            <Link
+              href="/dashboard/documentos"
+              className="flex items-center justify-center gap-1 text-sm text-bv-gold-600 hover:underline"
+            >
+              Ver Central de Documentos <ArrowRight className="h-3.5 w-3.5" />
             </Link>
           </CardContent>
         </Card>

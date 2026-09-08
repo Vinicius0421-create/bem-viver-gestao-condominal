@@ -14,6 +14,7 @@ import {
   ScrollText,
   Settings,
   ShieldCheck,
+  FolderOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { PapelUsuario } from "@/generated/prisma/enums";
@@ -61,6 +62,12 @@ const NAV_GROUPS: NavGroup[] = [
         label: "Demonstrativos",
         icon: FileSpreadsheet,
       },
+    ],
+  },
+  {
+    titulo: "Documentos",
+    itens: [
+      { href: "/dashboard/documentos", label: "Central de Documentos", icon: FolderOpen },
     ],
   },
   {
