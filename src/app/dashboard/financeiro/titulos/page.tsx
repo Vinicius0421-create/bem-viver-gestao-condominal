@@ -42,7 +42,7 @@ export default async function TitulosPage() {
   const podeEditar = papelAtendeMinimo(session.papel, "OPERACIONAL");
   const podeCancelar = papelAtendeMinimo(session.papel, "GESTOR");
 
-  const [titulos, condominios, categorias, fornecedores] = await Promise.all([
+  const [titulos, condominios, categorias, fornecedores, unidades] = await Promise.all([
     prisma.tituloFinanceiro.findMany({
       where: { excluidoEm: null, status: { not: "CANCELADO" } },
       include: { condominio: true, fornecedor: true },
@@ -58,6 +58,10 @@ export default async function TitulosPage() {
       where: { ativo: true },
       orderBy: { nome: "asc" },
       select: { id: true, nome: true },
+    }),
+    prisma.unidade.findMany({
+      orderBy: [{ bloco: "asc" }, { identificacao: "asc" }],
+      select: { id: true, condominioId: true, identificacao: true, bloco: true },
     }),
   ]);
 
@@ -91,6 +95,7 @@ export default async function TitulosPage() {
             condominios={condominios}
             categorias={categorias}
             fornecedores={fornecedores}
+            unidades={unidades}
           />
         )}
       </div>
@@ -167,6 +172,15 @@ export default async function TitulosPage() {
                         {t.fornecedor && (
                           <p className="text-xs text-muted-foreground">{t.fornecedor.nome}</p>
                         )}
+                        {t.unidadeId && (
+                          <p className="text-xs text-muted-foreground">
+                            Unidade:{" "}
+                            {(() => {
+                              const u = unidades.find((un) => un.id === t.unidadeId);
+                              return u ? (u.bloco ? `${u.bloco} — ${u.identificacao}` : u.identificacao) : "—";
+                            })()}
+                          </p>
+                        )}
                       </TableCell>
                       <TableCell className="text-right font-medium">
                         {formatCurrencyBRL(t.valor.toString())}
@@ -183,6 +197,7 @@ export default async function TitulosPage() {
                                 condominios={condominios}
                                 categorias={categorias}
                                 fornecedores={fornecedores}
+                                unidades={unidades}
                                 titulo={
                                   {
                                     id: t.id,
@@ -193,6 +208,7 @@ export default async function TitulosPage() {
                                     dataVencimento: t.dataVencimento,
                                     categoriaId: t.categoriaId,
                                     fornecedorId: t.fornecedorId,
+                                    unidadeId: t.unidadeId,
                                     recorrente: t.recorrente,
                                     observacoes: t.observacoes,
                                   } satisfies TituloInicial

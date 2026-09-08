@@ -24,6 +24,11 @@ export const TituloSchema = z.object({
   descricao: z.string().min(2, { error: "Descreva o título." }).trim(),
   categoriaId: z.string().trim().optional().or(z.literal("")),
   fornecedorId: z.string().trim().optional().or(z.literal("")),
+  // Sprint 3: vínculo opcional com a unidade — pré-requisito para o
+  // detalhamento de inadimplência por unidade (ver ROADMAP.md). Opcional
+  // porque nem todo título "a receber" é uma taxa condominial de uma
+  // unidade específica (ex: receita de aluguel de área comum).
+  unidadeId: z.string().trim().optional().or(z.literal("")),
   valor: z.coerce.number().positive({ error: "Informe um valor maior que zero." }),
   dataVencimento: z.string().min(1, { error: "Informe o vencimento." }),
   recorrente: z.boolean().default(false),

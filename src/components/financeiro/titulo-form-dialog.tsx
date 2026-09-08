@@ -27,6 +27,7 @@ import {
 
 type Opcao = { id: string; nome: string };
 type CategoriaOpcao = Opcao & { tipo: "RECEITA" | "DESPESA" };
+type UnidadeOpcao = { id: string; condominioId: string; identificacao: string; bloco: string | null };
 
 // Formato aceito pelo <input type="date">, e é o mesmo formato que
 // `TituloSchema.dataVencimento` espera receber de volta no submit.
@@ -46,6 +47,7 @@ export type TituloInicial = {
   dataVencimento: Date;
   categoriaId: string | null;
   fornecedorId: string | null;
+  unidadeId: string | null;
   recorrente: boolean;
   observacoes: string | null;
 };
@@ -55,22 +57,30 @@ export function TituloFormDialog({
   condominios,
   categorias,
   fornecedores,
+  unidades,
   titulo,
 }: {
   tipoInicial: "PAGAR" | "RECEBER";
   condominios: Opcao[];
   categorias: CategoriaOpcao[];
   fornecedores: Opcao[];
+  unidades: UnidadeOpcao[];
   titulo?: TituloInicial;
 }) {
   const [open, setOpen] = useState(false);
   const [tipo, setTipo] = useState<"PAGAR" | "RECEBER">(titulo?.tipo ?? tipoInicial);
+  const [condominioId, setCondominioId] = useState(titulo?.condominioId ?? "");
   const { submit, pending, error } = useDialogAction(salvarTitulo, () => setOpen(false));
 
   const isEdit = Boolean(titulo);
   const categoriasDoTipo = categorias.filter(
     (c) => c.tipo === (tipo === "PAGAR" ? "DESPESA" : "RECEITA")
   );
+  // Unidade só faz sentido para títulos "a receber" (taxa condominial de
+  // uma unidade específica) — é o vínculo que torna possível o
+  // detalhamento de inadimplência por unidade. Filtrada pelo condomínio
+  // selecionado, já que `unidadeId` é escopado por condomínio no banco.
+  const unidadesDoCondominio = unidades.filter((u) => u.condominioId === condominioId);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -107,7 +117,7 @@ export function TituloFormDialog({
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="condominioId">Condomínio *</Label>
-              <Select name="condominioId" defaultValue={titulo?.condominioId} required>
+              <Select name="condominioId" value={condominioId} onValueChange={setCondominioId} required>
                 <SelectTrigger id="condominioId">
                   <SelectValue placeholder="Selecione" />
                 </SelectTrigger>
@@ -121,6 +131,34 @@ export function TituloFormDialog({
               </Select>
             </div>
           </div>
+
+          {tipo === "RECEBER" && (
+            <div className="space-y-1.5">
+              <Label htmlFor="unidadeId">Unidade</Label>
+              <Select
+                name="unidadeId"
+                defaultValue={titulo?.unidadeId ?? undefined}
+                disabled={!condominioId}
+              >
+                <SelectTrigger id="unidadeId">
+                  <SelectValue
+                    placeholder={condominioId ? "Nenhuma (receita geral)" : "Selecione o condomínio primeiro"}
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {unidadesDoCondominio.map((u) => (
+                    <SelectItem key={u.id} value={u.id}>
+                      {u.bloco ? `${u.bloco} — ${u.identificacao}` : u.identificacao}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Vincular a uma unidade permite acompanhar inadimplência por unidade. Deixe em
+                branco para receitas que não são de uma unidade específica.
+              </p>
+            </div>
+          )}
 
           <div className="space-y-1.5">
             <Label htmlFor="descricao">Descrição *</Label>

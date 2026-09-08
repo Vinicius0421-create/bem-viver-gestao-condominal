@@ -56,25 +56,40 @@ export default async function CondominioDetalhePage({
   });
   if (!condominio) notFound();
 
-  const [lancamentosRecentes, prestacoes, agregados, qtdUnidadesCadastradas] = await Promise.all([
-    prisma.lancamentoFinanceiro.findMany({
-      where: { condominioId: id, excluidoEm: null },
-      include: { categoria: true },
-      orderBy: { dataMovimento: "desc" },
-      take: 8,
-    }),
-    prisma.prestacaoContas.findMany({
-      where: { condominioId: id },
-      orderBy: [{ competenciaAno: "desc" }, { competenciaMes: "desc" }],
-      take: 12,
-    }),
-    prisma.lancamentoFinanceiro.groupBy({
-      by: ["tipo"],
-      where: { condominioId: id, excluidoEm: null },
-      _sum: { valor: true },
-    }),
-    prisma.unidade.count({ where: { condominioId: id } }),
-  ]);
+  const [lancamentosRecentes, prestacoes, agregados, qtdUnidadesCadastradas, titulosVencidosPorUnidade] =
+    await Promise.all([
+      prisma.lancamentoFinanceiro.findMany({
+        where: { condominioId: id, excluidoEm: null },
+        include: { categoria: true },
+        orderBy: { dataMovimento: "desc" },
+        take: 8,
+      }),
+      prisma.prestacaoContas.findMany({
+        where: { condominioId: id },
+        orderBy: [{ competenciaAno: "desc" }, { competenciaMes: "desc" }],
+        take: 12,
+      }),
+      prisma.lancamentoFinanceiro.groupBy({
+        by: ["tipo"],
+        where: { condominioId: id, excluidoEm: null },
+        _sum: { valor: true },
+      }),
+      prisma.unidade.count({ where: { condominioId: id } }),
+      prisma.tituloFinanceiro.findMany({
+        where: {
+          condominioId: id,
+          tipo: "RECEBER",
+          unidadeId: { not: null },
+          status: { in: ["PENDENTE", "ATRASADO"] },
+          excluidoEm: null,
+          dataVencimento: { lt: new Date() },
+        },
+        select: { unidadeId: true },
+        distinct: ["unidadeId"],
+      }),
+    ]);
+
+  const qtdUnidadesInadimplentes = titulosVencidosPorUnidade.length;
 
   const totalReceitas = Number(
     agregados.find((a) => a.tipo === "RECEITA")?._sum.valor ?? 0
@@ -107,7 +122,7 @@ export default async function CondominioDetalhePage({
         </p>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <Card>
           <CardHeader className="pb-1">
             <CardDescription>Síndico responsável</CardDescription>
@@ -143,6 +158,21 @@ export default async function CondominioDetalhePage({
               </CardTitle>
               <Button variant="outline" size="sm" asChild>
                 <Link href={`/dashboard/condominios/${id}/unidades`}>Gerenciar</Link>
+              </Button>
+            </div>
+          </CardHeader>
+        </Card>
+        <Card>
+          <CardHeader className="pb-1">
+            <CardDescription>Unidades inadimplentes</CardDescription>
+            <div className="flex items-center justify-between gap-2">
+              <CardTitle
+                className={`text-base ${qtdUnidadesInadimplentes > 0 ? "text-destructive" : ""}`}
+              >
+                {qtdUnidadesInadimplentes > 0 ? `${qtdUnidadesInadimplentes} unidade(s)` : "Nenhuma"}
+              </CardTitle>
+              <Button variant="outline" size="sm" asChild>
+                <Link href={`/dashboard/condominios/${id}/inadimplencia`}>Ver</Link>
               </Button>
             </div>
           </CardHeader>

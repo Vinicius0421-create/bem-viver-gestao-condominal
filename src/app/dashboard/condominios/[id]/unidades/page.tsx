@@ -81,7 +81,12 @@ export default async function UnidadesPage({
               {unidades.length} unidade(s) cadastrada(s) em {condominio.nome}
             </p>
           </div>
-          {podeEditar && <UnidadeFormDialog condominioId={id} />}
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" asChild>
+              <Link href={`/dashboard/condominios/${id}/inadimplencia`}>Ver inadimplência</Link>
+            </Button>
+            {podeEditar && <UnidadeFormDialog condominioId={id} />}
+          </div>
         </div>
       </div>
 
