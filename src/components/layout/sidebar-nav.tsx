@@ -15,6 +15,7 @@ import {
   Settings,
   ShieldCheck,
   FolderOpen,
+  FileSignature,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { PapelUsuario } from "@/generated/prisma/enums";
@@ -44,6 +45,7 @@ const NAV_GROUPS: NavGroup[] = [
       { href: "/dashboard/condominios", label: "Condomínios", icon: Building2 },
       { href: "/dashboard/sindicos", label: "Síndicos", icon: Users },
       { href: "/dashboard/fornecedores", label: "Fornecedores", icon: Truck },
+      { href: "/dashboard/contratos", label: "Contratos", icon: FileSignature },
     ],
   },
   {

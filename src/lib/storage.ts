@@ -8,11 +8,15 @@ import {
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
-// Camada de acesso ao bucket S3-compatível do Railway (Central de
-// Documentos — Sprint 4). O bucket é privado por padrão (Railway Buckets
-// não suportam bucket público): todo download passa por uma URL assinada
-// de curta duração, nunca por um link direto e permanente. Ver
-// /api/documentos/[id]/download.
+// Camada de acesso ao bucket S3-compatível do Railway. Introduzida na
+// Central de Documentos (Sprint 4) e reaproveitada por Contratos
+// (Sprint 5) — qualquer módulo que precise anexar um arquivo usa este
+// mesmo bucket, apenas com um prefixo de pasta diferente (`pastaBase`),
+// em vez de provisionar um novo bucket ou reinventar a validação. O
+// bucket é privado por padrão (Railway Buckets não suportam bucket
+// público): todo download passa por uma URL assinada de curta duração,
+// nunca por um link direto e permanente. Ver /api/documentos/[id]/download
+// e /api/contratos/[id]/download.
 //
 // Variáveis de ambiente (definidas na Railway via Variable References
 // apontando para o bucket "bemviver-documentos", mesmo padrão usado para
@@ -91,12 +95,16 @@ export function validarArquivoDocumento(arquivo: File): { ok: true } | { ok: fal
 }
 
 // Faz upload do arquivo para o bucket e retorna a chave do objeto (a ser
-// salva em `Documento.arquivoUrl`) junto com metadados para exibição.
+// salva em `Documento.arquivoUrl`/`Contrato.arquivoUrl`) junto com
+// metadados para exibição. `pastaBase` separa os arquivos por módulo
+// dentro do mesmo bucket (ex: "documentos", "contratos") — puramente
+// organizacional, não afeta validação nem segurança.
 export async function enviarArquivoDocumento(params: {
   arquivo: File;
   condominioId: string | null;
+  pastaBase?: string;
 }): Promise<{ chave: string; nomeOriginal: string; tipo: string; tamanhoBytes: number }> {
-  const { arquivo, condominioId } = params;
+  const { arquivo, condominioId, pastaBase = "documentos" } = params;
   const bucket = getBucketName();
   const s3 = getS3Client();
 
@@ -104,7 +112,7 @@ export async function enviarArquivoDocumento(params: {
   const nomeOriginal = sanitizarNomeArquivo(arquivo.name);
   const extensao = MIME_TIPOS_PERMITIDOS[arquivo.type] ?? "bin";
   const pasta = condominioId ? `condominios/${condominioId}` : "gerais";
-  const chave = `documentos/${pasta}/${randomUUID()}.${extensao}`;
+  const chave = `${pastaBase}/${pasta}/${randomUUID()}.${extensao}`;
 
   await s3.send(
     new PutObjectCommand({

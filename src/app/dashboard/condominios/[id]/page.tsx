@@ -60,6 +60,10 @@ export default async function CondominioDetalhePage({
   limiteAlertaDocumentos.setHours(23, 59, 59, 999);
   limiteAlertaDocumentos.setDate(limiteAlertaDocumentos.getDate() + 30);
 
+  const limiteAlertaContratos = new Date();
+  limiteAlertaContratos.setHours(23, 59, 59, 999);
+  limiteAlertaContratos.setDate(limiteAlertaContratos.getDate() + 60);
+
   const [
     lancamentosRecentes,
     prestacoes,
@@ -68,6 +72,8 @@ export default async function CondominioDetalhePage({
     titulosVencidosPorUnidade,
     qtdDocumentos,
     qtdDocumentosVencendo,
+    qtdContratos,
+    qtdContratosVencendo,
   ] = await Promise.all([
       prisma.lancamentoFinanceiro.findMany({
         where: { condominioId: id, excluidoEm: null },
@@ -106,6 +112,14 @@ export default async function CondominioDetalhePage({
           dataValidade: { not: null, lte: limiteAlertaDocumentos },
         },
       }),
+      prisma.contrato.count({ where: { condominioId: id, ativo: true } }),
+      prisma.contrato.count({
+        where: {
+          condominioId: id,
+          ativo: true,
+          dataFim: { not: null, lte: limiteAlertaContratos },
+        },
+      }),
     ]);
 
   const qtdUnidadesInadimplentes = titulosVencidosPorUnidade.length;
@@ -141,7 +155,7 @@ export default async function CondominioDetalhePage({
         </p>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-6">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-7">
         <Card>
           <CardHeader className="pb-1">
             <CardDescription>Síndico responsável</CardDescription>
@@ -212,6 +226,26 @@ export default async function CondominioDetalhePage({
               </CardTitle>
               <Button variant="outline" size="sm" asChild>
                 <Link href={`/dashboard/documentos?condominioId=${id}`}>Ver</Link>
+              </Button>
+            </div>
+          </CardHeader>
+        </Card>
+        <Card>
+          <CardHeader className="pb-1">
+            <CardDescription>Contratos</CardDescription>
+            <div className="flex items-center justify-between gap-2">
+              <CardTitle
+                className={`text-base ${qtdContratosVencendo > 0 ? "text-warning" : ""}`}
+              >
+                {qtdContratos > 0 ? `${qtdContratos} contrato(s)` : "Nenhum ainda"}
+                {qtdContratosVencendo > 0 && (
+                  <span className="ml-1.5 text-xs font-normal">
+                    ({qtdContratosVencendo} vencendo)
+                  </span>
+                )}
+              </CardTitle>
+              <Button variant="outline" size="sm" asChild>
+                <Link href={`/dashboard/contratos?condominioId=${id}`}>Ver</Link>
               </Button>
             </div>
           </CardHeader>
