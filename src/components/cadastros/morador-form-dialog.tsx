@@ -32,6 +32,7 @@ type MoradorInicial = {
   telefone: string | null;
   tipoVinculo: string;
   principal: boolean;
+  dataInicio: Date;
 };
 
 const TIPO_VINCULO_LABEL: Record<string, string> = {
@@ -39,6 +40,13 @@ const TIPO_VINCULO_LABEL: Record<string, string> = {
   INQUILINO: "Inquilino",
   DEPENDENTE: "Dependente",
 };
+
+function paraInputDate(data: Date): string {
+  const ano = data.getFullYear();
+  const mes = String(data.getMonth() + 1).padStart(2, "0");
+  const dia = String(data.getDate()).padStart(2, "0");
+  return `${ano}-${mes}-${dia}`;
+}
 
 export function MoradorFormDialog({
   condominioId,
@@ -110,6 +118,19 @@ export function MoradorFormDialog({
               <Label htmlFor="telefone">Telefone</Label>
               <Input id="telefone" name="telefone" defaultValue={morador?.telefone ?? ""} />
             </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="dataInicio">Início do vínculo</Label>
+            <Input
+              id="dataInicio"
+              name="dataInicio"
+              type="date"
+              defaultValue={morador?.dataInicio ? paraInputDate(morador.dataInicio) : ""}
+            />
+            <p className="text-xs text-muted-foreground">
+              Deixe em branco para hoje. Usado para responder quem morava em cada unidade em uma
+              data específica.
+            </p>
           </div>
           <div className="space-y-1">
             <div className="flex items-center gap-2">

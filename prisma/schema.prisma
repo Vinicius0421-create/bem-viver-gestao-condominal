@@ -161,6 +161,16 @@ enum TipoVinculoMorador {
   DEPENDENTE
 }
 
+// Histórico de vínculo pessoa-unidade (Sprint 6, setembro/2026 — Opção A da
+// seção 5.2 de EVOLUCAO-PLATAFORMA.md). `dataInicio`/`dataFim` respondem
+// "quem morava na unidade X em determinada data" sem precisar de uma
+// entidade `Pessoa` separada (Opção B, avaliada e descartada por
+// complexidade sem caso de uso real). O par (ativo, dataFim) é mantido
+// consistente pela Server Action: inativar sempre grava `dataFim = hoje`,
+// reativar sempre limpa `dataFim` — nunca editados soltos um sem o outro
+// (ver `alternarAtivoMorador`). Para um morador que se muda e depois volta,
+// o padrão correto é encerrar o registro atual e cadastrar um novo (não
+// reativar o antigo), preservando o intervalo vago no histórico.
 model Morador {
   id          String             @id @default(cuid())
   unidadeId   String
@@ -172,8 +182,11 @@ model Morador {
   tipoVinculo TipoVinculoMorador @default(PROPRIETARIO)
   principal   Boolean            @default(false)
   ativo       Boolean            @default(true)
+  dataInicio  DateTime           @default(now())
+  dataFim     DateTime?
   criadoEm    DateTime           @default(now())
 
+  @@index([unidadeId, ativo])
   @@map("moradores")
 }
 

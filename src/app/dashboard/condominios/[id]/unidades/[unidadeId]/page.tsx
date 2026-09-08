@@ -22,6 +22,7 @@ import { Badge } from "@/components/ui/badge";
 import { MoradorFormDialog } from "@/components/cadastros/morador-form-dialog";
 import { ConfirmActionButton } from "@/components/shared/confirm-action-button";
 import { alternarAtivoMorador } from "@/app/actions/moradores";
+import { formatDatePtBR } from "@/lib/utils";
 import { ArrowLeft, Ban, RotateCcw, Star } from "lucide-react";
 
 export async function generateMetadata({
@@ -97,6 +98,7 @@ export default async function MoradoresDaUnidadePage({
               <TableRow>
                 <TableHead>Nome</TableHead>
                 <TableHead>Vínculo</TableHead>
+                <TableHead>Período</TableHead>
                 <TableHead>Contato</TableHead>
                 <TableHead>Status</TableHead>
                 {podeEditar && <TableHead className="text-right">Ações</TableHead>}
@@ -105,7 +107,7 @@ export default async function MoradoresDaUnidadePage({
             <TableBody>
               {moradores.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={5} className="py-10 text-center text-muted-foreground">
+                  <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
                     Nenhum morador cadastrado para esta unidade.
                   </TableCell>
                 </TableRow>
@@ -122,6 +124,15 @@ export default async function MoradoresDaUnidadePage({
                   </TableCell>
                   <TableCell>
                     <Badge variant="outline">{TIPO_VINCULO_LABEL[m.tipoVinculo]}</Badge>
+                  </TableCell>
+                  <TableCell className="text-xs text-muted-foreground">
+                    Desde {formatDatePtBR(m.dataInicio)}
+                    {m.dataFim && (
+                      <>
+                        <br />
+                        até {formatDatePtBR(m.dataFim)}
+                      </>
+                    )}
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
                     {m.email ?? m.telefone ?? "—"}
@@ -144,18 +155,19 @@ export default async function MoradoresDaUnidadePage({
                           telefone: m.telefone,
                           tipoVinculo: m.tipoVinculo,
                           principal: m.principal,
+                          dataInicio: m.dataInicio,
                         }}
                       />
                       {podeInativar && (
                         <ConfirmActionButton
                           action={alternarAtivoMorador.bind(null, m.id, !m.ativo, id, unidadeId)}
-                          titulo={m.ativo ? "Inativar morador" : "Reativar morador"}
+                          titulo={m.ativo ? "Encerrar vínculo" : "Reativar morador"}
                           descricao={
                             m.ativo
-                              ? `"${m.nome}" deixará de aparecer como morador ativo desta unidade.`
-                              : `"${m.nome}" voltará a aparecer como morador ativo desta unidade.`
+                              ? `Encerra o vínculo de "${m.nome}" com esta unidade a partir de hoje (fica registrado no histórico). Se essa pessoa se mudar e depois voltar, cadastre um novo morador em vez de reativar este registro.`
+                              : `"${m.nome}" volta a aparecer como morador ativo e a data de encerramento é removida. Use apenas para desfazer um engano — se a pessoa realmente se mudou e voltou, prefira cadastrar um novo morador.`
                           }
-                          labelBotao={m.ativo ? "Inativar" : "Reativar"}
+                          labelBotao={m.ativo ? "Encerrar" : "Reativar"}
                           icon={
                             m.ativo ? (
                               <Ban className="h-4 w-4" />

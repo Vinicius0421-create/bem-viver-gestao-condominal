@@ -11,6 +11,12 @@ function toNullable(v: string | undefined | null) {
   return v && v.length > 0 ? v : null;
 }
 
+function paraData(valor: string | undefined): Date | null {
+  if (!valor) return null;
+  const data = new Date(valor);
+  return Number.isNaN(data.getTime()) ? null : data;
+}
+
 export async function salvarMorador(
   _prevState: ActionState,
   formData: FormData
@@ -31,6 +37,20 @@ export async function salvarMorador(
     return { success: false, error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
   }
   const data = parsed.data;
+
+  // dataInicio em branco: na criação, assume hoje; na edição, mantém a
+  // data já registrada (busca o valor atual em vez de sobrescrever com
+  // "agora", que apagaria o início real do vínculo).
+  let dataInicio = paraData(data.dataInicio);
+  if (!dataInicio) {
+    if (id) {
+      const atual = await prisma.morador.findUnique({ where: { id }, select: { dataInicio: true } });
+      dataInicio = atual?.dataInicio ?? new Date();
+    } else {
+      dataInicio = new Date();
+    }
+  }
+
   const payload = {
     unidadeId,
     nome: data.nome,
@@ -39,6 +59,7 @@ export async function salvarMorador(
     telefone: toNullable(data.telefone),
     tipoVinculo: data.tipoVinculo,
     principal: data.principal,
+    dataInicio,
   };
 
   // Só pode haver um morador principal por unidade — ao marcar um novo
@@ -82,7 +103,13 @@ export async function salvarMorador(
 
 // Segue o mesmo padrão de reversibilidade adotado em UX-1 (Fornecedores,
 // Síndicos): inativar/reativar em vez de excluir, com auditoria nos dois
-// sentidos.
+// sentidos. Desde o Sprint 6, também mantém `dataFim` sincronizado com
+// `ativo` — inativar grava a data de encerramento do vínculo (histórico
+// de ocupação, seção 5.2 do plano de evolução); reativar limpa `dataFim`.
+// Reativar deve ser usado só para desfazer um engano: para um morador que
+// se mudou e depois voltou, o correto é manter este registro encerrado e
+// cadastrar um novo (dataInicio novo), preservando o intervalo no
+// histórico em vez de reescrevê-lo.
 export async function alternarAtivoMorador(
   id: string,
   ativo: boolean,
@@ -90,13 +117,14 @@ export async function alternarAtivoMorador(
   unidadeId: string
 ) {
   const session = await requireRole("ADMIN");
-  await prisma.morador.update({ where: { id }, data: { ativo } });
+  const dataFim = ativo ? null : new Date();
+  await prisma.morador.update({ where: { id }, data: { ativo, dataFim } });
   await registrarAuditoria({
     usuarioId: session.userId,
     acao: ativo ? "ATUALIZACAO" : "EXCLUSAO",
     entidade: "Morador",
     entidadeId: id,
-    dadosDepois: { ativo },
+    dadosDepois: { ativo, dataFim },
   });
   revalidatePath(`/dashboard/condominios/${condominioId}/unidades/${unidadeId}`);
 }

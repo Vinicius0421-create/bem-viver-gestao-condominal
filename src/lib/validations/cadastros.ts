@@ -56,5 +56,9 @@ export const MoradorSchema = z.object({
   telefone: z.string().trim().optional().or(z.literal("")),
   tipoVinculo: z.enum(["PROPRIETARIO", "INQUILINO", "DEPENDENTE"]),
   principal: z.boolean().default(false),
+  // Opcional: em branco significa "hoje" na criação, ou "mantém a data
+  // já registrada" na edição (ver salvarMorador). Sprint 6 — histórico de
+  // vínculo pessoa-unidade.
+  dataInicio: z.string().trim().optional().or(z.literal("")),
 });
 export type MoradorFormValues = z.infer<typeof MoradorSchema>;
