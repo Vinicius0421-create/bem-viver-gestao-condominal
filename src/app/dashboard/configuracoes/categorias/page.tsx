@@ -55,6 +55,13 @@ export default async function CategoriasPage() {
     .map((c) => ({ id: c.id, nome: c.nome, tipo: c.tipo }));
   const nomePorId = new Map(categorias.map((c) => [c.id, c.nome]));
 
+  // Mesmo padrão de hierarquia de 1 nível para CategoriaDocumento — ver
+  // actions/categorias-documento.ts.
+  const categoriasPaiDocumento = categoriasDocumento
+    .filter((c) => !c.categoriaPaiId)
+    .map((c) => ({ id: c.id, nome: c.nome }));
+  const nomePorIdDocumento = new Map(categoriasDocumento.map((c) => [c.id, c.nome]));
+
   const receitas = categorias.filter((c) => c.tipo === "RECEITA");
   const despesas = categorias.filter((c) => c.tipo === "DESPESA");
 
@@ -162,7 +169,7 @@ export default async function CategoriasPage() {
             Usadas na Central de Documentos para classificar contratos, atas, comprovantes etc.
           </p>
         </div>
-        <CategoriaDocumentoFormDialog />
+        <CategoriaDocumentoFormDialog categoriasPai={categoriasPaiDocumento} />
       </div>
 
       <Card>
@@ -181,7 +188,14 @@ export default async function CategoriasPage() {
             <TableBody>
               {categoriasDocumento.map((c) => (
                 <TableRow key={c.id}>
-                  <TableCell className="flex items-center gap-2 font-medium">
+                  <TableCell
+                    className={`flex items-center gap-2 font-medium ${c.categoriaPaiId ? "pl-6" : ""}`}
+                  >
+                    {c.categoriaPaiId && (
+                      <span className="text-muted-foreground" aria-hidden>
+                        ↳
+                      </span>
+                    )}
                     <span
                       className="h-2.5 w-2.5 rounded-full"
                       style={{ backgroundColor: c.cor ?? "#b3892f" }}
@@ -192,10 +206,22 @@ export default async function CategoriasPage() {
                         padrão
                       </Badge>
                     )}
+                    {c.categoriaPaiId && (
+                      <span className="text-xs text-muted-foreground">
+                        de {nomePorIdDocumento.get(c.categoriaPaiId) ?? "—"}
+                      </span>
+                    )}
                   </TableCell>
                   <TableCell className="flex justify-end gap-1 text-right">
                     <CategoriaDocumentoFormDialog
-                      categoria={{ id: c.id, nome: c.nome, cor: c.cor, ordem: c.ordem }}
+                      categoria={{
+                        id: c.id,
+                        nome: c.nome,
+                        cor: c.cor,
+                        ordem: c.ordem,
+                        categoriaPaiId: c.categoriaPaiId,
+                      }}
+                      categoriasPai={categoriasPaiDocumento}
                     />
                     {podeInativar && !c.padraoSistema && (
                       <ConfirmActionButton

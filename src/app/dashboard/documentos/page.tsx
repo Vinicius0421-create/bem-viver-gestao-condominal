@@ -54,19 +54,31 @@ function situacaoValidade(
 export default async function DocumentosPage({
   searchParams,
 }: {
-  searchParams: Promise<{ condominioId?: string; categoriaId?: string }>;
+  searchParams: Promise<{
+    condominioId?: string;
+    categoriaId?: string;
+    fornecedorId?: string;
+    competenciaMes?: string;
+    competenciaAno?: string;
+  }>;
 }) {
   const params = await searchParams;
   const session = await verifySession();
   const podeEditar = papelAtendeMinimo(session.papel, "GESTOR");
 
+  const competenciaMes = params.competenciaMes ? Number(params.competenciaMes) : undefined;
+  const competenciaAno = params.competenciaAno ? Number(params.competenciaAno) : undefined;
+
   const where = {
     excluidoEm: null,
     ...(params.condominioId ? { condominioId: params.condominioId } : {}),
     ...(params.categoriaId ? { categoriaId: params.categoriaId } : {}),
+    ...(params.fornecedorId ? { fornecedorId: params.fornecedorId } : {}),
+    ...(competenciaMes ? { competenciaMes } : {}),
+    ...(competenciaAno ? { competenciaAno } : {}),
   };
 
-  const [documentos, condominios, categorias] = await Promise.all([
+  const [documentos, condominios, categorias, fornecedores, unidades] = await Promise.all([
     prisma.documento.findMany({
       where,
       include: { condominio: true, enviadoPor: true, categoria: true },
@@ -77,7 +89,16 @@ export default async function DocumentosPage({
     prisma.categoriaDocumento.findMany({
       where: { ativo: true },
       orderBy: [{ ordem: "asc" }, { nome: "asc" }],
+      select: { id: true, nome: true, categoriaPaiId: true },
+    }),
+    prisma.fornecedor.findMany({
+      where: { ativo: true },
+      orderBy: { nome: "asc" },
       select: { id: true, nome: true },
+    }),
+    prisma.unidade.findMany({
+      orderBy: [{ condominioId: "asc" }, { identificacao: "asc" }],
+      select: { id: true, condominioId: true, identificacao: true, bloco: true },
     }),
   ]);
 
@@ -103,6 +124,8 @@ export default async function DocumentosPage({
           <DocumentoFormDialog
             condominios={condominios}
             categorias={categorias}
+            fornecedores={fornecedores}
+            unidades={unidades}
             condominioIdPadrao={params.condominioId}
           />
         )}
@@ -127,7 +150,12 @@ export default async function DocumentosPage({
         </div>
       )}
 
-      <FiltroDocumentos condominios={condominios} categorias={categorias} valoresAtuais={params} />
+      <FiltroDocumentos
+        condominios={condominios}
+        categorias={categorias}
+        fornecedores={fornecedores}
+        valoresAtuais={params}
+      />
 
       <Card>
         <CardHeader>
@@ -198,12 +226,20 @@ export default async function DocumentosPage({
                             <DocumentoFormDialog
                               condominios={condominios}
                               categorias={categorias}
+                              fornecedores={fornecedores}
+                              unidades={unidades}
                               documento={{
                                 id: d.id,
+                                condominioId: d.condominioId,
                                 nome: d.nome,
                                 descricao: d.descricao,
                                 categoriaId: d.categoriaId,
                                 dataValidade: d.dataValidade,
+                                competenciaMes: d.competenciaMes,
+                                competenciaAno: d.competenciaAno,
+                                fornecedorId: d.fornecedorId,
+                                unidadeId: d.unidadeId,
+                                tags: d.tags,
                               }}
                             />
                             <ConfirmActionButton

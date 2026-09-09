@@ -16,6 +16,18 @@ function toNullable(value: string | undefined | null) {
   return value && value.length > 0 ? value : null;
 }
 
+// "água, boleto,  junho" → ["água", "boleto", "junho"] — trim, remove
+// vazios e duplicadas. Guardado como String[] nativo do Postgres.
+function parseTags(value: string | undefined | null): string[] {
+  if (!value) return [];
+  const vistas = new Set<string>();
+  for (const parte of value.split(",")) {
+    const tag = parte.trim();
+    if (tag) vistas.add(tag);
+  }
+  return Array.from(vistas);
+}
+
 // Central de Documentos (Sprint 4). Diferente do padrão "salvar único" usado
 // em outros cadastros, upload de arquivo só faz sentido na criação — editar
 // um documento existente só altera metadados (nome, descrição, categoria,
@@ -63,21 +75,35 @@ export async function enviarDocumento(
   if (dataValidade && Number.isNaN(dataValidade.getTime())) {
     return { success: false, error: "Data de validade inválida." };
   }
+  if (data.competenciaMes && !data.competenciaAno) {
+    return { success: false, error: "Informe também o ano de competência." };
+  }
 
-  const criado = await prisma.documento.create({
-    data: {
-      condominioId: data.condominioId,
-      nome: data.nome,
-      descricao: toNullable(data.descricao),
-      categoriaId: data.categoriaId,
-      arquivoUrl: upload.chave,
-      arquivoNome: upload.nomeOriginal,
-      arquivoTipo: upload.tipo,
-      tamanhoBytes: upload.tamanhoBytes,
-      dataValidade,
-      enviadoPorId: session.userId,
-    },
-  });
+  let criado;
+  try {
+    criado = await prisma.documento.create({
+      data: {
+        condominioId: data.condominioId,
+        nome: data.nome,
+        descricao: toNullable(data.descricao),
+        categoriaId: data.categoriaId,
+        competenciaMes: data.competenciaMes || null,
+        competenciaAno: data.competenciaAno || null,
+        fornecedorId: toNullable(data.fornecedorId),
+        unidadeId: toNullable(data.unidadeId),
+        tags: parseTags(data.tags),
+        arquivoUrl: upload.chave,
+        arquivoNome: upload.nomeOriginal,
+        arquivoTipo: upload.tipo,
+        tamanhoBytes: upload.tamanhoBytes,
+        hashArquivo: upload.hashSha256,
+        dataValidade,
+        enviadoPorId: session.userId,
+      },
+    });
+  } catch {
+    return { success: false, error: "Fornecedor ou unidade selecionados são inválidos." };
+  }
 
   await registrarAuditoria({
     usuarioId: session.userId,
@@ -88,6 +114,8 @@ export async function enviarDocumento(
       condominioId: data.condominioId,
       nome: data.nome,
       categoriaId: data.categoriaId,
+      fornecedorId: criado.fornecedorId,
+      unidadeId: criado.unidadeId,
       arquivoNome: upload.nomeOriginal,
     },
   });
@@ -120,15 +148,27 @@ export async function editarMetadadosDocumento(
   if (dataValidade && Number.isNaN(dataValidade.getTime())) {
     return { success: false, error: "Data de validade inválida." };
   }
+  if (data.competenciaMes && !data.competenciaAno) {
+    return { success: false, error: "Informe também o ano de competência." };
+  }
 
   const payload = {
     nome: data.nome,
     descricao: toNullable(data.descricao),
     categoriaId: data.categoriaId,
+    competenciaMes: data.competenciaMes || null,
+    competenciaAno: data.competenciaAno || null,
+    fornecedorId: toNullable(data.fornecedorId),
+    unidadeId: toNullable(data.unidadeId),
+    tags: parseTags(data.tags),
     dataValidade,
   };
 
-  await prisma.documento.update({ where: { id }, data: payload });
+  try {
+    await prisma.documento.update({ where: { id }, data: payload });
+  } catch {
+    return { success: false, error: "Fornecedor ou unidade selecionados são inválidos." };
+  }
   await registrarAuditoria({
     usuarioId: session.userId,
     acao: "ATUALIZACAO",
@@ -137,6 +177,8 @@ export async function editarMetadadosDocumento(
     dadosAntes: {
       nome: atual.nome,
       categoriaId: atual.categoriaId,
+      fornecedorId: atual.fornecedorId,
+      unidadeId: atual.unidadeId,
       dataValidade: atual.dataValidade,
     },
     dadosDepois: payload,

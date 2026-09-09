@@ -25,13 +25,21 @@ import {
 } from "@/components/ui/dialog";
 
 type Opcao = { id: string; nome: string };
+type CategoriaOpcao = { id: string; nome: string; categoriaPaiId?: string | null };
+type UnidadeOpcao = { id: string; condominioId: string; identificacao: string; bloco: string | null };
 
 type DocumentoInicial = {
   id: string;
+  condominioId: string | null;
   nome: string;
   descricao: string | null;
   categoriaId: string;
   dataValidade: Date | null;
+  competenciaMes: number | null;
+  competenciaAno: number | null;
+  fornecedorId: string | null;
+  unidadeId: string | null;
+  tags: string[];
 };
 
 function paraInputDate(data: Date): string {
@@ -44,11 +52,15 @@ function paraInputDate(data: Date): string {
 export function DocumentoFormDialog({
   condominios,
   categorias,
+  fornecedores,
+  unidades,
   condominioIdPadrao,
   documento,
 }: {
   condominios: Opcao[];
-  categorias: Opcao[];
+  categorias: CategoriaOpcao[];
+  fornecedores: Opcao[];
+  unidades: UnidadeOpcao[];
   condominioIdPadrao?: string;
   documento?: DocumentoInicial;
 }) {
@@ -56,6 +68,13 @@ export function DocumentoFormDialog({
   const isEdit = Boolean(documento);
   const action = isEdit ? editarMetadadosDocumento : enviarDocumento;
   const { submit, pending, error } = useDialogAction(action, () => setOpen(false));
+  const [condominioId, setCondominioId] = useState(
+    documento?.condominioId ?? condominioIdPadrao ?? ""
+  );
+  // Unidade é escopada por condomínio no banco — mesmo padrão usado em
+  // TituloFormDialog. Documento "geral" (sem condomínio) não tem unidades
+  // para escolher.
+  const unidadesDoCondominio = unidades.filter((u) => u.condominioId === condominioId);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -81,7 +100,7 @@ export function DocumentoFormDialog({
           {!isEdit && (
             <div className="space-y-1.5">
               <Label htmlFor="condominioId">Condomínio *</Label>
-              <Select name="condominioId" defaultValue={condominioIdPadrao} required>
+              <Select name="condominioId" value={condominioId} onValueChange={setCondominioId} required>
                 <SelectTrigger id="condominioId">
                   <SelectValue placeholder="Selecione" />
                 </SelectTrigger>
@@ -117,7 +136,7 @@ export function DocumentoFormDialog({
                 <SelectContent>
                   {categorias.map((c) => (
                     <SelectItem key={c.id} value={c.id}>
-                      {c.nome}
+                      {c.categoriaPaiId ? `— ${c.nome}` : c.nome}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -137,6 +156,91 @@ export function DocumentoFormDialog({
             Preencha a validade apenas para documentos com prazo (contratos, seguros, certidões).
             Um alerta aparece no painel do condomínio a partir de 30 dias antes do vencimento.
           </p>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="competenciaMes">Mês de competência</Label>
+              <Select
+                name="competenciaMes"
+                defaultValue={documento?.competenciaMes ? String(documento.competenciaMes) : undefined}
+              >
+                <SelectTrigger id="competenciaMes">
+                  <SelectValue placeholder="Nenhum" />
+                </SelectTrigger>
+                <SelectContent>
+                  {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
+                    <SelectItem key={m} value={String(m)}>
+                      {new Date(2000, m - 1, 1).toLocaleDateString("pt-BR", { month: "long" })}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="competenciaAno">Ano de competência</Label>
+              <Input
+                id="competenciaAno"
+                name="competenciaAno"
+                type="number"
+                placeholder="Ex: 2026"
+                defaultValue={documento?.competenciaAno ?? undefined}
+              />
+            </div>
+          </div>
+          <p className="-mt-2 text-xs text-muted-foreground">
+            Opcional — útil para localizar rapidamente boletos, notas fiscais e comprovantes de um
+            mês/ano específico. Se preencher o mês, informe também o ano.
+          </p>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="fornecedorId">Fornecedor</Label>
+              <Select name="fornecedorId" defaultValue={documento?.fornecedorId ?? undefined}>
+                <SelectTrigger id="fornecedorId">
+                  <SelectValue placeholder="Nenhum" />
+                </SelectTrigger>
+                <SelectContent>
+                  {fornecedores.map((f) => (
+                    <SelectItem key={f.id} value={f.id}>
+                      {f.nome}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="unidadeId">Unidade</Label>
+              <Select
+                name="unidadeId"
+                defaultValue={documento?.unidadeId ?? undefined}
+                disabled={!condominioId}
+              >
+                <SelectTrigger id="unidadeId">
+                  <SelectValue
+                    placeholder={condominioId ? "Nenhuma" : "Selecione o condomínio primeiro"}
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {unidadesDoCondominio.map((u) => (
+                    <SelectItem key={u.id} value={u.id}>
+                      {u.bloco ? `${u.bloco} — ${u.identificacao}` : u.identificacao}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="tags">Tags (opcional)</Label>
+            <Input
+              id="tags"
+              name="tags"
+              placeholder="Ex: boleto, água, junho"
+              defaultValue={documento?.tags?.join(", ") ?? ""}
+            />
+            <p className="text-xs text-muted-foreground">Separe múltiplas tags por vírgula.</p>
+          </div>
 
           {!isEdit && (
             <div className="space-y-1.5">

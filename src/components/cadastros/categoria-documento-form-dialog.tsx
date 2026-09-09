@@ -8,6 +8,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Dialog,
   DialogContent,
   DialogHeader,
@@ -21,18 +28,27 @@ type CategoriaDocumentoInicial = {
   nome: string;
   cor: string | null;
   ordem: number;
+  categoriaPaiId?: string | null;
 };
+
+// Só categorias principais (sem categoriaPaiId) entram aqui — hierarquia
+// de 1 nível só, mesmo padrão de CategoriaFinanceira.
+type CategoriaPaiOpcao = { id: string; nome: string };
 
 export function CategoriaDocumentoFormDialog({
   categoria,
+  categoriasPai = [],
 }: {
   categoria?: CategoriaDocumentoInicial;
+  categoriasPai?: CategoriaPaiOpcao[];
 }) {
   const [open, setOpen] = useState(false);
   const { submit, pending, error } = useDialogAction(salvarCategoriaDocumento, () =>
     setOpen(false)
   );
   const isEdit = Boolean(categoria);
+  const opcoesPai = categoriasPai.filter((c) => c.id !== categoria?.id);
+  const jaESubcategoria = Boolean(categoria?.categoriaPaiId);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -57,6 +73,31 @@ export function CategoriaDocumentoFormDialog({
           <div className="space-y-1.5">
             <Label htmlFor="nome">Nome *</Label>
             <Input id="nome" name="nome" defaultValue={categoria?.nome} required />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="categoriaPaiId">Subcategoria de (opcional)</Label>
+            <Select
+              name="categoriaPaiId"
+              defaultValue={categoria?.categoriaPaiId ?? "nenhuma"}
+              disabled={jaESubcategoria}
+            >
+              <SelectTrigger id="categoriaPaiId">
+                <SelectValue placeholder="Categoria principal" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="nenhuma">Nenhuma — categoria principal</SelectItem>
+                {opcoesPai.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.nome}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {jaESubcategoria && (
+              <p className="text-xs text-muted-foreground">
+                Esta categoria já é uma subcategoria — só é permitido 1 nível de hierarquia.
+              </p>
+            )}
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">

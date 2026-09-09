@@ -1,5 +1,5 @@
 import "server-only";
-import { randomUUID } from "node:crypto";
+import { randomUUID, createHash } from "node:crypto";
 import {
   S3Client,
   PutObjectCommand,
@@ -103,7 +103,13 @@ export async function enviarArquivoDocumento(params: {
   arquivo: File;
   condominioId: string | null;
   pastaBase?: string;
-}): Promise<{ chave: string; nomeOriginal: string; tipo: string; tamanhoBytes: number }> {
+}): Promise<{
+  chave: string;
+  nomeOriginal: string;
+  tipo: string;
+  tamanhoBytes: number;
+  hashSha256: string;
+}> {
   const { arquivo, condominioId, pastaBase = "documentos" } = params;
   const bucket = getBucketName();
   const s3 = getS3Client();
@@ -113,6 +119,12 @@ export async function enviarArquivoDocumento(params: {
   const extensao = MIME_TIPOS_PERMITIDOS[arquivo.type] ?? "bin";
   const pasta = condominioId ? `condominios/${condominioId}` : "gerais";
   const chave = `${pastaBase}/${pasta}/${randomUUID()}.${extensao}`;
+  // SHA-256 do conteúdo — guardado em Documento.hashArquivo (Fase 3 do
+  // Plano de Evolução V2). Não usado para nada além de exibição/registro
+  // por enquanto; a checagem de duplicidade em si é escopo da Fase 4
+  // (esteira de importação em massa), quando houver volume real para
+  // calibrar o que fazer diante de um hash repetido.
+  const hashSha256 = createHash("sha256").update(buffer).digest("hex");
 
   await s3.send(
     new PutObjectCommand({
@@ -123,7 +135,13 @@ export async function enviarArquivoDocumento(params: {
     })
   );
 
-  return { chave, nomeOriginal, tipo: arquivo.type, tamanhoBytes: buffer.byteLength };
+  return {
+    chave,
+    nomeOriginal,
+    tipo: arquivo.type,
+    tamanhoBytes: buffer.byteLength,
+    hashSha256,
+  };
 }
 
 export async function gerarUrlDownloadDocumento(chave: string): Promise<string> {

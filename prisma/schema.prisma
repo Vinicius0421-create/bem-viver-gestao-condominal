@@ -213,8 +213,9 @@ model Unidade {
   criadoEm      DateTime      @default(now())
   atualizadoEm  DateTime      @updatedAt
 
-  moradores Morador[]
-  titulos   TituloFinanceiro[]
+  moradores  Morador[]
+  titulos    TituloFinanceiro[]
+  documentos Documento[]
 
   @@unique([condominioId, identificacao])
   @@map("unidades")
@@ -271,6 +272,7 @@ model Fornecedor {
   lancamentos LancamentoFinanceiro[]
   titulos     TituloFinanceiro[]
   contratos   Contrato[]
+  documentos  Documento[]
 
   @@map("fornecedores")
 }
@@ -305,8 +307,8 @@ model CategoriaFinanceira {
   // subcategoria não pode por sua vez ter subcategorias — validado na
   // Server Action, não no banco, para manter o schema simples.
   categoriaPaiId String?
-  categoriaPai   CategoriaFinanceira?   @relation("SubcategoriasFinanceiras", fields: [categoriaPaiId], references: [id], onDelete: SetNull)
-  subcategorias  CategoriaFinanceira[]  @relation("SubcategoriasFinanceiras")
+  categoriaPai   CategoriaFinanceira?  @relation("SubcategoriasFinanceiras", fields: [categoriaPaiId], references: [id], onDelete: SetNull)
+  subcategorias  CategoriaFinanceira[] @relation("SubcategoriasFinanceiras")
 
   lancamentos LancamentoFinanceiro[]
   titulos     TituloFinanceiro[]
@@ -487,8 +489,16 @@ model CategoriaDocumento {
   criadoEm      DateTime @default(now())
   atualizadoEm  DateTime @updatedAt
 
+  // Hierarquia de 1 nível só, mesmo padrão introduzido em
+  // CategoriaFinanceira na Fase 2 — ver o comentário lá para o racional
+  // completo. Validado na Server Action, não no banco.
+  categoriaPaiId String?
+  categoriaPai   CategoriaDocumento?  @relation("SubcategoriasDocumento", fields: [categoriaPaiId], references: [id], onDelete: SetNull)
+  subcategorias  CategoriaDocumento[] @relation("SubcategoriasDocumento")
+
   documentos Documento[]
 
+  @@index([categoriaPaiId])
   @@map("categorias_documento")
 }
 
@@ -499,27 +509,54 @@ model CategoriaDocumento {
 // bucket S3-compatível do Railway (não uma URL pública — o bucket é privado;
 // o download é sempre mediado por uma rota autenticada que gera uma URL
 // assinada de curta duração). Ver src/lib/storage.ts.
+//
+// Fase 3 do Plano de Evolução V2 (setembro/2026) ampliou os metadados:
+// competência (mês/ano do documento, útil para comprovantes financeiros),
+// vínculo opcional com fornecedor/unidade (documentos que dizem respeito a
+// uma entidade específica, não só ao condomínio como um todo), tags (busca
+// livre), hash SHA-256 do arquivo (preparo para deduplicação na Fase 4) e
+// proveniência (como o documento entrou no sistema). Deliberadamente NÃO
+// inclui vínculo com lançamento financeiro/prestação de contas (isso é
+// escopo da Fase 5, "integração documentos ↔ financeiro") nem com morador
+// (sem caso de uso concreto ainda) nem uma taxonomia extra de "tipo
+// documental" (redundante com categoria+subcategoria sem um exemplo
+// concreto do que distinguiria as duas coisas).
 model Documento {
-  id           String             @id @default(cuid())
-  condominioId String?
-  condominio   Condominio?        @relation(fields: [condominioId], references: [id])
-  nome         String
-  descricao    String?
-  categoriaId  String
-  categoria    CategoriaDocumento @relation(fields: [categoriaId], references: [id])
-  arquivoUrl   String
-  arquivoNome  String?
-  arquivoTipo  String?
-  tamanhoBytes Int?
-  dataValidade DateTime?
-  enviadoPorId String
-  enviadoPor   Usuario            @relation("DocumentoEnviadoPor", fields: [enviadoPorId], references: [id])
-  excluidoEm   DateTime?
-  criadoEm     DateTime           @default(now())
-  atualizadoEm DateTime           @updatedAt
+  id             String             @id @default(cuid())
+  condominioId   String?
+  condominio     Condominio?        @relation(fields: [condominioId], references: [id])
+  nome           String
+  descricao      String?
+  categoriaId    String
+  categoria      CategoriaDocumento @relation(fields: [categoriaId], references: [id])
+  competenciaMes Int?
+  competenciaAno Int?
+  fornecedorId   String?
+  fornecedor     Fornecedor?        @relation(fields: [fornecedorId], references: [id], onDelete: SetNull)
+  unidadeId      String?
+  unidade        Unidade?           @relation(fields: [unidadeId], references: [id], onDelete: SetNull)
+  tags           String[]           @default([])
+  arquivoUrl     String
+  arquivoNome    String?
+  arquivoTipo    String?
+  tamanhoBytes   Int?
+  hashArquivo    String?
+  // "UPLOAD_MANUAL" (padrão hoje) | "IMPORTACAO_EM_MASSA" (Fase 4, ainda não
+  // implementada) — String livre, não enum, mesmo padrão já usado em
+  // LancamentoFinanceiro.formaPagamento nesta base de código.
+  proveniencia   String             @default("UPLOAD_MANUAL")
+  dataValidade   DateTime?
+  enviadoPorId   String
+  enviadoPor     Usuario            @relation("DocumentoEnviadoPor", fields: [enviadoPorId], references: [id])
+  excluidoEm     DateTime?
+  criadoEm       DateTime           @default(now())
+  atualizadoEm   DateTime           @updatedAt
 
   @@index([condominioId, categoriaId])
   @@index([condominioId, dataValidade])
+  @@index([fornecedorId])
+  @@index([unidadeId])
+  @@index([condominioId, competenciaAno, competenciaMes])
   @@map("documentos")
 }
 

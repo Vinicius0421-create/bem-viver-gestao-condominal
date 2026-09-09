@@ -18,10 +18,44 @@ export async function salvarCategoriaDocumento(
     return { success: false, error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
   }
   const data = parsed.data;
+  // "nenhuma" é o valor sentinela usado pelo <Select> (Radix não aceita
+  // value="" em SelectItem) para representar "sem categoria-mãe".
+  const categoriaPaiId =
+    data.categoriaPaiId && data.categoriaPaiId !== "nenhuma" ? data.categoriaPaiId : null;
+
+  // Mesma regra de hierarquia de 1 nível só, já validada em
+  // actions/categorias.ts (CategoriaFinanceira) — ver lá o racional
+  // completo.
+  if (categoriaPaiId) {
+    if (categoriaPaiId === id) {
+      return { success: false, error: "Uma categoria não pode ser subcategoria de si mesma." };
+    }
+    const pai = await prisma.categoriaDocumento.findUnique({ where: { id: categoriaPaiId } });
+    if (!pai) {
+      return { success: false, error: "Categoria-mãe selecionada não existe." };
+    }
+    if (pai.categoriaPaiId) {
+      return {
+        success: false,
+        error: "Só é permitido um nível de subcategoria — selecione uma categoria principal como mãe.",
+      };
+    }
+  }
+  if (id && categoriaPaiId) {
+    const temFilhas = await prisma.categoriaDocumento.count({ where: { categoriaPaiId: id } });
+    if (temFilhas > 0) {
+      return {
+        success: false,
+        error: "Esta categoria já tem subcategorias — não pode virar subcategoria de outra.",
+      };
+    }
+  }
+
   const payload = {
     nome: data.nome,
     cor: data.cor || "#b3892f",
     ordem: data.ordem ?? 0,
+    categoriaPaiId,
   };
 
   try {
