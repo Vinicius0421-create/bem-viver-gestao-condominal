@@ -69,7 +69,7 @@ export async function enviarDocumento(
       condominioId: data.condominioId,
       nome: data.nome,
       descricao: toNullable(data.descricao),
-      categoria: data.categoria,
+      categoriaId: data.categoriaId,
       arquivoUrl: upload.chave,
       arquivoNome: upload.nomeOriginal,
       arquivoTipo: upload.tipo,
@@ -87,7 +87,7 @@ export async function enviarDocumento(
     dadosDepois: {
       condominioId: data.condominioId,
       nome: data.nome,
-      categoria: data.categoria,
+      categoriaId: data.categoriaId,
       arquivoNome: upload.nomeOriginal,
     },
   });
@@ -124,7 +124,7 @@ export async function editarMetadadosDocumento(
   const payload = {
     nome: data.nome,
     descricao: toNullable(data.descricao),
-    categoria: data.categoria,
+    categoriaId: data.categoriaId,
     dataValidade,
   };
 
@@ -136,7 +136,7 @@ export async function editarMetadadosDocumento(
     entidadeId: id,
     dadosAntes: {
       nome: atual.nome,
-      categoria: atual.categoria,
+      categoriaId: atual.categoriaId,
       dataValidade: atual.dataValidade,
     },
     dadosDepois: payload,

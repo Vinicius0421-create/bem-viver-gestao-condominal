@@ -10,16 +10,17 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { X } from "lucide-react";
-import { CATEGORIA_LABEL } from "@/components/documentos/documento-form-dialog";
 
 type Opcao = { id: string; nome: string };
 
 export function FiltroDocumentos({
   condominios,
+  categorias,
   valoresAtuais,
 }: {
   condominios: Opcao[];
-  valoresAtuais: { condominioId?: string; categoria?: string };
+  categorias: Opcao[];
+  valoresAtuais: { condominioId?: string; categoriaId?: string };
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -34,7 +35,7 @@ export function FiltroDocumentos({
     router.push(`${pathname}?${params.toString()}`);
   }
 
-  const temFiltro = Boolean(valoresAtuais.condominioId || valoresAtuais.categoria);
+  const temFiltro = Boolean(valoresAtuais.condominioId || valoresAtuais.categoriaId);
 
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -56,17 +57,17 @@ export function FiltroDocumentos({
       </Select>
 
       <Select
-        value={valoresAtuais.categoria ?? "todas"}
-        onValueChange={(v) => atualizar("categoria", v === "todas" ? undefined : v)}
+        value={valoresAtuais.categoriaId ?? "todas"}
+        onValueChange={(v) => atualizar("categoriaId", v === "todas" ? undefined : v)}
       >
         <SelectTrigger className="w-56">
           <SelectValue placeholder="Todas as categorias" />
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="todas">Todas as categorias</SelectItem>
-          {Object.entries(CATEGORIA_LABEL).map(([value, label]) => (
-            <SelectItem key={value} value={value}>
-              {label}
+          {categorias.map((c) => (
+            <SelectItem key={c.id} value={c.id}>
+              {c.nome}
             </SelectItem>
           ))}
         </SelectContent>

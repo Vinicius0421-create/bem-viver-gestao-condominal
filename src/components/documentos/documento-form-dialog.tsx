@@ -24,23 +24,13 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 
-export const CATEGORIA_LABEL: Record<string, string> = {
-  CONTRATO: "Contrato",
-  ATA: "Ata de assembleia",
-  COMPROVANTE: "Documento financeiro (comprovante/nota fiscal)",
-  CONVENCAO: "Convenção do condomínio",
-  REGIMENTO_INTERNO: "Regimento interno",
-  COMUNICADO: "Comunicado/circular",
-  OUTRO: "Outro",
-};
-
 type Opcao = { id: string; nome: string };
 
 type DocumentoInicial = {
   id: string;
   nome: string;
   descricao: string | null;
-  categoria: string;
+  categoriaId: string;
   dataValidade: Date | null;
 };
 
@@ -53,10 +43,12 @@ function paraInputDate(data: Date): string {
 
 export function DocumentoFormDialog({
   condominios,
+  categorias,
   condominioIdPadrao,
   documento,
 }: {
   condominios: Opcao[];
+  categorias: Opcao[];
   condominioIdPadrao?: string;
   documento?: DocumentoInicial;
 }) {
@@ -117,15 +109,15 @@ export function DocumentoFormDialog({
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <Label htmlFor="categoria">Categoria *</Label>
-              <Select name="categoria" defaultValue={documento?.categoria ?? "OUTRO"}>
-                <SelectTrigger id="categoria">
-                  <SelectValue />
+              <Label htmlFor="categoriaId">Categoria *</Label>
+              <Select name="categoriaId" defaultValue={documento?.categoriaId}>
+                <SelectTrigger id="categoriaId">
+                  <SelectValue placeholder="Selecione" />
                 </SelectTrigger>
                 <SelectContent>
-                  {Object.entries(CATEGORIA_LABEL).map(([value, label]) => (
-                    <SelectItem key={value} value={value}>
-                      {label}
+                  {categorias.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.nome}
                     </SelectItem>
                   ))}
                 </SelectContent>

@@ -97,6 +97,12 @@ model Sindico {
 model Condominio {
   id                 String           @id @default(cuid())
   nome               String
+  // Razão social (nome empresarial oficial do condomínio, ex: "Condomínio
+  // Edifício X"), separada de `nome` (nome fantasia/apelido usado no
+  // dia a dia — ex: "Residencial Barcelia"). Opcional porque nem todo
+  // condomínio já tem esse dado cadastrado; nunca inventar — só preencher
+  // quando fornecido pela Bem Viver.
+  razaoSocial        String?
   cnpj               String?          @unique
   endereco           String?
   cidade             String?
@@ -126,8 +132,66 @@ model Condominio {
   documentos       Documento[]
   contratos        Contrato[]
   assembleias      Assembleia[]
+  representantes   RepresentanteCondominio[]
+  contatos         ContatoCondominio[]
 
   @@map("condominios")
+}
+
+enum PapelRepresentanteCondominio {
+  SUBSINDICO
+  CONSELHEIRO
+  CONSELHEIRO_PRESIDENTE
+}
+
+// Subsíndico e membros do conselho (fiscal/consultivo) do condomínio.
+// Segue o mesmo padrão de histórico já validado em `Morador` (Sprint 6):
+// `ativo` + `dataInicio`/`dataFim` respondem "quem ocupava este papel em
+// determinada data" sem apagar histórico ao trocar de gestão. O síndico
+// titular continua modelado por `Sindico`/`Condominio.sindicoId` (já
+// existente); este modelo cobre os papéis que a Bem Viver ainda não tinha
+// estrutura própria para registrar (Fase 1 do PLANO-EVOLUCAO-V2.md).
+model RepresentanteCondominio {
+  id           String                       @id @default(cuid())
+  condominioId String
+  condominio   Condominio                   @relation(fields: [condominioId], references: [id], onDelete: Cascade)
+  papel        PapelRepresentanteCondominio
+  nome         String
+  cpf          String?
+  email        String?
+  telefone     String?
+  ativo        Boolean                      @default(true)
+  dataInicio   DateTime                     @default(now())
+  dataFim      DateTime?
+  observacoes  String?
+  criadoEm     DateTime                     @default(now())
+  atualizadoEm DateTime                     @updatedAt
+
+  @@index([condominioId, papel, ativo])
+  @@map("representantes_condominio")
+}
+
+// Contatos operacionais do condomínio (portaria, zelador, financeiro do
+// condomínio, administradora anterior, etc.). `tipo` é texto livre e não
+// enum: os papéis variam muito de condomínio para condomínio e fechar
+// essa lista agora seria prematuro sem volume real de dados (mesmo
+// racional que já levou `CategoriaFinanceira` a ser uma tabela
+// configurável em vez de enum — ver seção 1.5 do PLANO-EVOLUCAO-V2.md).
+model ContatoCondominio {
+  id           String     @id @default(cuid())
+  condominioId String
+  condominio   Condominio @relation(fields: [condominioId], references: [id], onDelete: Cascade)
+  tipo         String
+  nome         String?
+  email        String?
+  telefone     String?
+  observacoes  String?
+  ativo        Boolean    @default(true)
+  criadoEm     DateTime   @default(now())
+  atualizadoEm DateTime   @updatedAt
+
+  @@index([condominioId, ativo])
+  @@map("contatos_condominio")
 }
 
 enum StatusUnidade {
@@ -395,14 +459,28 @@ model MovimentoFundoReserva {
 // DOCUMENTOS & CONTRATOS (estrutura pronta — Fase 2 traz upload/central completa)
 // ----------------------------------------------------------------------------
 
-enum CategoriaDocumento {
-  CONTRATO
-  ATA
-  COMPROVANTE
-  CONVENCAO
-  REGIMENTO_INTERNO
-  COMUNICADO
-  OUTRO
+// Categoria de documento — migrada de enum fixo para tabela configurável
+// (Fase 1 do PLANO-EVOLUCAO-V2.md), no mesmo padrão já validado em
+// `CategoriaFinanceira`: `padraoSistema` marca as 7 categorias herdadas do
+// enum anterior (não podem ser desativadas, preservando compatibilidade
+// com o histórico), `ordem` controla a posição nos seletores, `cor` permite
+// diferenciação visual futura no explorador de documentos. Diferente de
+// `ContatoCondominio.tipo` (texto livre): aqui vale a pena uma tabela de
+// verdade porque a lista é compartilhada entre todos os condomínios e
+// alimenta filtros/relatórios, não é um detalhe pontual por condomínio.
+model CategoriaDocumento {
+  id            String   @id @default(cuid())
+  nome          String   @unique
+  cor           String?  @default("#b3892f")
+  ordem         Int      @default(0)
+  padraoSistema Boolean  @default(false)
+  ativo         Boolean  @default(true)
+  criadoEm      DateTime @default(now())
+  atualizadoEm  DateTime @updatedAt
+
+  documentos Documento[]
+
+  @@map("categorias_documento")
 }
 
 // Central de Documentos (Sprint 4) — o modelo já existia desde a Fase 1
@@ -418,7 +496,8 @@ model Documento {
   condominio   Condominio?        @relation(fields: [condominioId], references: [id])
   nome         String
   descricao    String?
-  categoria    CategoriaDocumento @default(OUTRO)
+  categoriaId  String
+  categoria    CategoriaDocumento @relation(fields: [categoriaId], references: [id])
   arquivoUrl   String
   arquivoNome  String?
   arquivoTipo  String?
@@ -430,7 +509,7 @@ model Documento {
   criadoEm     DateTime           @default(now())
   atualizadoEm DateTime           @updatedAt
 
-  @@index([condominioId, categoria])
+  @@index([condominioId, categoriaId])
   @@index([condominioId, dataValidade])
   @@map("documentos")
 }

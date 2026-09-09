@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
+import { verifySession, papelAtendeMinimo } from "@/lib/dal";
 import { formatCurrencyBRL, competenciaLabel, formatDatePtBR } from "@/lib/utils";
 import {
   Card,
@@ -19,8 +20,19 @@ import {
   TableBody,
   TableCell,
 } from "@/components/ui/table";
-import { ArrowLeft, FileText } from "lucide-react";
+import { ArrowLeft, FileText, RotateCcw, Archive } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { RepresentanteFormDialog } from "@/components/condominios/representante-form-dialog";
+import { ContatoCondominioFormDialog } from "@/components/condominios/contato-condominio-form-dialog";
+import { ConfirmActionButton } from "@/components/shared/confirm-action-button";
+import { alternarAtivoRepresentanteCondominio } from "@/app/actions/representantes-condominio";
+import { alternarAtivoContatoCondominio } from "@/app/actions/contatos-condominio";
+
+const PAPEL_REPRESENTANTE_LABEL: Record<string, string> = {
+  SUBSINDICO: "Subsíndico",
+  CONSELHEIRO_PRESIDENTE: "Presidente do conselho",
+  CONSELHEIRO: "Conselheiro",
+};
 
 export async function generateMetadata({
   params,
@@ -49,10 +61,18 @@ export default async function CondominioDetalhePage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const session = await verifySession();
+  const podeEditar = papelAtendeMinimo(session.papel, "GESTOR");
+  const podeInativar = papelAtendeMinimo(session.papel, "ADMIN");
 
   const condominio = await prisma.condominio.findUnique({
     where: { id },
-    include: { sindico: true, unidades: true },
+    include: {
+      sindico: true,
+      unidades: true,
+      representantes: { orderBy: [{ ativo: "desc" }, { papel: "asc" }, { nome: "asc" }] },
+      contatos: { orderBy: [{ ativo: "desc" }, { tipo: "asc" }] },
+    },
   });
   if (!condominio) notFound();
 
@@ -163,6 +183,9 @@ export default async function CondominioDetalhePage({
             {condominio.status}
           </Badge>
         </div>
+        {condominio.razaoSocial && (
+          <p className="text-sm text-muted-foreground">{condominio.razaoSocial}</p>
+        )}
         <p className="text-sm text-muted-foreground">
           {condominio.endereco ?? "Endereço não informado"}
           {condominio.cidade ? ` — ${condominio.cidade}/${condominio.estado ?? ""}` : ""}
@@ -395,6 +418,175 @@ export default async function CondominioDetalhePage({
                           <FileText className="h-4 w-4" />
                         </Link>
                       </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+        <Card>
+          <CardHeader className="flex-row items-center justify-between space-y-0">
+            <div>
+              <CardTitle>Subsíndico e conselho</CardTitle>
+              <CardDescription>Representantes do condomínio além do síndico titular</CardDescription>
+            </div>
+            {podeEditar && <RepresentanteFormDialog condominioId={id} />}
+          </CardHeader>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Nome</TableHead>
+                  <TableHead>Papel</TableHead>
+                  <TableHead>Contato</TableHead>
+                  <TableHead className="w-20" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {condominio.representantes.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={4} className="py-8 text-center text-muted-foreground">
+                      Nenhum subsíndico ou conselheiro cadastrado.
+                    </TableCell>
+                  </TableRow>
+                )}
+                {condominio.representantes.map((r) => (
+                  <TableRow key={r.id} className={r.ativo ? "" : "opacity-50"}>
+                    <TableCell className="font-medium">{r.nome}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {PAPEL_REPRESENTANTE_LABEL[r.papel] ?? r.papel}
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {r.telefone ?? r.email ?? "—"}
+                    </TableCell>
+                    <TableCell>
+                      {podeEditar && (
+                        <div className="flex justify-end gap-1">
+                          <RepresentanteFormDialog
+                            condominioId={id}
+                            representante={{
+                              id: r.id,
+                              papel: r.papel,
+                              nome: r.nome,
+                              cpf: r.cpf,
+                              email: r.email,
+                              telefone: r.telefone,
+                              observacoes: r.observacoes,
+                            }}
+                          />
+                          {podeInativar && (
+                            <ConfirmActionButton
+                              action={alternarAtivoRepresentanteCondominio.bind(
+                                null,
+                                r.id,
+                                !r.ativo,
+                                id
+                              )}
+                              titulo={r.ativo ? "Encerrar mandato" : "Reativar representante"}
+                              descricao={
+                                r.ativo
+                                  ? "O registro será mantido no histórico, marcado como encerrado."
+                                  : "O representante voltará a aparecer como ativo."
+                              }
+                              labelBotao={r.ativo ? "Encerrar" : "Reativar"}
+                              icon={
+                                r.ativo ? (
+                                  <Archive className="h-4 w-4" />
+                                ) : (
+                                  <RotateCcw className="h-4 w-4" />
+                                )
+                              }
+                            />
+                          )}
+                        </div>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex-row items-center justify-between space-y-0">
+            <div>
+              <CardTitle>Contatos operacionais</CardTitle>
+              <CardDescription>Portaria, zeladoria, financeiro e demais contatos</CardDescription>
+            </div>
+            {podeEditar && <ContatoCondominioFormDialog condominioId={id} />}
+          </CardHeader>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Tipo</TableHead>
+                  <TableHead>Nome</TableHead>
+                  <TableHead>Contato</TableHead>
+                  <TableHead className="w-20" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {condominio.contatos.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={4} className="py-8 text-center text-muted-foreground">
+                      Nenhum contato operacional cadastrado.
+                    </TableCell>
+                  </TableRow>
+                )}
+                {condominio.contatos.map((c) => (
+                  <TableRow key={c.id} className={c.ativo ? "" : "opacity-50"}>
+                    <TableCell className="font-medium">{c.tipo}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {c.nome ?? "—"}
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {c.telefone ?? c.email ?? "—"}
+                    </TableCell>
+                    <TableCell>
+                      {podeEditar && (
+                        <div className="flex justify-end gap-1">
+                          <ContatoCondominioFormDialog
+                            condominioId={id}
+                            contato={{
+                              id: c.id,
+                              tipo: c.tipo,
+                              nome: c.nome,
+                              email: c.email,
+                              telefone: c.telefone,
+                              observacoes: c.observacoes,
+                            }}
+                          />
+                          {podeInativar && (
+                            <ConfirmActionButton
+                              action={alternarAtivoContatoCondominio.bind(
+                                null,
+                                c.id,
+                                !c.ativo,
+                                id
+                              )}
+                              titulo={c.ativo ? "Desativar contato" : "Reativar contato"}
+                              descricao={
+                                c.ativo
+                                  ? "O contato deixará de aparecer como ativo."
+                                  : "O contato voltará a aparecer como ativo."
+                              }
+                              labelBotao={c.ativo ? "Desativar" : "Reativar"}
+                              icon={
+                                c.ativo ? (
+                                  <Archive className="h-4 w-4" />
+                                ) : (
+                                  <RotateCcw className="h-4 w-4" />
+                                )
+                              }
+                            />
+                          )}
+                        </div>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}

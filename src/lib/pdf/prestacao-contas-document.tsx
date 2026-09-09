@@ -1,5 +1,22 @@
-import { Document, Page, View, Text, StyleSheet } from "@react-pdf/renderer";
+import path from "node:path";
+import { Document, Page, View, Text, StyleSheet, Font, Svg, Rect } from "@react-pdf/renderer";
 import { formatCurrencyBRL, competenciaLabel, formatDatePtBR } from "@/lib/utils";
+
+// Playfair Display — mesma fonte institucional usada no app web (ver
+// `next/font/google` em `src/app/layout.tsx`, registrada lá como
+// `--font-display`). O react-pdf não tem acesso às fontes do Google
+// Fonts embutidas no navegador, então os arquivos .ttf ficam vendorizados
+// em `public/fonts/` (sempre publicados como estão, sem depender de rede
+// em produção) e são registrados aqui a partir do disco — corrige a
+// divergência de identidade em que o PDF, ao contrário do app e do
+// e-mail, ainda usava Helvetica-Bold no cabeçalho da marca.
+Font.register({
+  family: "Playfair Display",
+  fonts: [
+    { src: path.join(process.cwd(), "public/fonts/PlayfairDisplay-600.ttf"), fontWeight: 600 },
+    { src: path.join(process.cwd(), "public/fonts/PlayfairDisplay-700.ttf"), fontWeight: 700 },
+  ],
+});
 
 // Paleta idêntica à identidade visual da Bem Viver (preto e dourado).
 const CORES = {
@@ -31,11 +48,17 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
     marginBottom: 16,
   },
+  marcaLockup: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
   marca: {
-    fontSize: 16,
-    fontFamily: "Helvetica-Bold",
+    fontSize: 17,
+    fontFamily: "Playfair Display",
+    fontWeight: 700,
     color: CORES.preto,
-    letterSpacing: 0.5,
+    letterSpacing: 0.3,
   },
   marcaSub: {
     fontSize: 8,
@@ -199,7 +222,27 @@ export function PrestacaoContasDocument({ prestacao }: { prestacao: PrestacaoCon
       <Page size="A4" style={styles.page}>
         <View style={styles.cabecalho}>
           <View>
-            <Text style={styles.marca}>BEM VIVER</Text>
+            <View style={styles.marcaLockup}>
+              <Svg width="16" height="16" viewBox="0 0 200 200">
+                <Rect
+                  x="12"
+                  y="12"
+                  width="176"
+                  height="176"
+                  rx="50"
+                  ry="50"
+                  stroke={CORES.dourado}
+                  strokeWidth="14"
+                  fill="none"
+                />
+                <Rect x="38" y="118" width="16" height="28" fill={CORES.dourado} />
+                <Rect x="58" y="98" width="16" height="48" fill={CORES.dourado} />
+                <Rect x="80" y="82" width="20" height="64" fill={CORES.dourado} />
+                <Rect x="104" y="100" width="16" height="46" fill={CORES.dourado} />
+                <Rect x="124" y="116" width="18" height="30" fill={CORES.dourado} />
+              </Svg>
+              <Text style={styles.marca}>BEM VIVER</Text>
+            </View>
             <Text style={styles.marcaSub}>ASSESSORIA CONDOMINIAL</Text>
           </View>
           <View>

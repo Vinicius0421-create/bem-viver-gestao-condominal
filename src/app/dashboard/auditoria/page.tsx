@@ -55,6 +55,8 @@ const ENTIDADE_LABEL: Record<string, string> = {
   Documento: "Documento",
   Contrato: "Contrato",
   Assembleia: "Assembleia",
+  RepresentanteCondominio: "Subsíndico/conselho",
+  ContatoCondominio: "Contato do condomínio",
 };
 
 export default async function AuditoriaPage({

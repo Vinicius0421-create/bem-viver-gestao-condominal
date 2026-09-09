@@ -1,10 +1,18 @@
 /**
- * Marca da Bem Viver — reconstrução vetorial (SVG) da logo oficial: moldura
- * quadrada arredondada contornando um skyline estilizado, na paleta
- * dourada já usada no restante do sistema (`--bv-gold-500` etc, ver
- * `globals.css`), sobre fundo transparente. Vetorial para renderizar nítida
- * em qualquer tamanho (sidebar, favicon, PDF), sem depender de um arquivo
- * de imagem externo.
+ * Marca da Bem Viver — reconstrução vetorial (SVG) da logo oficial.
+ *
+ * Fidelidade: reproduz o símbolo real usado nos materiais institucionais da
+ * empresa (ver arquivos de referência do projeto — cartão/post oficiais):
+ * moldura em "squircle" (quadrado de cantos bem arredondados) contornando um
+ * conjunto de barras verticais douradas de alturas variadas (skyline
+ * minimalista, sem telhados em ponta e sem linha de horizonte). As duas
+ * referências oficiais disponíveis variam ligeiramente o formato da moldura
+ * (arco vs. squircle fechado); optou-se pelo squircle fechado por já ser o
+ * padrão usado neste sistema (favicon, PWA, cabeçalhos) e por ser o formato
+ * mais próximo do "badge" oficial usado ao lado do wordmark.
+ *
+ * Vetorial para renderizar nítida em qualquer tamanho (sidebar, favicon,
+ * PDF), sem depender de um arquivo de imagem externo.
  */
 export function LogoMark({ className }: { className?: string }) {
   return (
@@ -16,51 +24,26 @@ export function LogoMark({ className }: { className?: string }) {
       role="img"
       aria-label="Bem Viver Assessoria Condominial"
     >
-      {/* Moldura quadrada arredondada */}
+      {/* Moldura squircle */}
       <rect
         x="12"
         y="12"
         width="176"
         height="176"
-        rx="58"
-        ry="58"
+        rx="50"
+        ry="50"
         stroke="currentColor"
         strokeWidth="9"
       />
 
-      {/* Skyline */}
+      {/* Skyline — barras verticais de alturas variadas, topo reto (sem telhado em ponta, sem linha de horizonte) */}
       <g fill="currentColor">
-        {/* Prédio 1 — pequeno, à esquerda */}
-        <rect x="34" y="104" width="17" height="38" />
-
-        {/* Prédio 2 — colunas finas */}
-        <g>
-          <rect x="56" y="84" width="4" height="58" />
-          <rect x="64" y="84" width="4" height="58" />
-          <rect x="72" y="84" width="4" height="58" />
-        </g>
-
-        {/* Prédio 3 — o mais alto, ao centro, com topo em ponta */}
-        <path d="M84 142V70l14-14 14 14v72H84Z" />
-
-        {/* Prédio 4 — colunas finas */}
-        <g>
-          <rect x="118" y="90" width="4" height="52" />
-          <rect x="126" y="90" width="4" height="52" />
-          <rect x="134" y="90" width="4" height="52" />
-        </g>
-
-        {/* Prédio 5 — pequeno, à direita */}
-        <rect x="148" y="110" width="17" height="32" />
+        <rect x="38" y="118" width="16" height="28" />
+        <rect x="58" y="98" width="16" height="48" />
+        <rect x="80" y="82" width="20" height="64" />
+        <rect x="104" y="100" width="16" height="46" />
+        <rect x="124" y="116" width="18" height="30" />
       </g>
-
-      {/* Linha do horizonte, levemente curva, sob o skyline */}
-      <path
-        d="M26 145 Q100 132 174 145"
-        stroke="currentColor"
-        strokeWidth="6"
-        strokeLinecap="round"
-      />
     </svg>
   );
 }

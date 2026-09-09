@@ -20,15 +20,11 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  DocumentoFormDialog,
-  CATEGORIA_LABEL,
-} from "@/components/documentos/documento-form-dialog";
+import { DocumentoFormDialog } from "@/components/documentos/documento-form-dialog";
 import { FiltroDocumentos } from "@/components/documentos/filtro-documentos";
 import { ConfirmActionButton } from "@/components/shared/confirm-action-button";
 import { formatDatePtBR } from "@/lib/utils";
 import { AlertTriangle, Download, Trash2 } from "lucide-react";
-import type { CategoriaDocumento } from "@/generated/prisma/enums";
 
 export const metadata: Metadata = { title: "Central de Documentos" };
 
@@ -58,34 +54,31 @@ function situacaoValidade(
 export default async function DocumentosPage({
   searchParams,
 }: {
-  searchParams: Promise<{ condominioId?: string; categoria?: string }>;
+  searchParams: Promise<{ condominioId?: string; categoriaId?: string }>;
 }) {
   const params = await searchParams;
   const session = await verifySession();
   const podeEditar = papelAtendeMinimo(session.papel, "GESTOR");
 
-  // Validação defensiva do filtro vindo da URL: um valor de categoria
-  // inválido não deve gerar erro 500 (Postgres rejeitaria o cast para o
-  // enum) — apenas o filtro é ignorado.
-  const categoriaFiltro =
-    params.categoria && params.categoria in CATEGORIA_LABEL
-      ? (params.categoria as CategoriaDocumento)
-      : undefined;
-
   const where = {
     excluidoEm: null,
     ...(params.condominioId ? { condominioId: params.condominioId } : {}),
-    ...(categoriaFiltro ? { categoria: categoriaFiltro } : {}),
+    ...(params.categoriaId ? { categoriaId: params.categoriaId } : {}),
   };
 
-  const [documentos, condominios] = await Promise.all([
+  const [documentos, condominios, categorias] = await Promise.all([
     prisma.documento.findMany({
       where,
-      include: { condominio: true, enviadoPor: true },
+      include: { condominio: true, enviadoPor: true, categoria: true },
       orderBy: { criadoEm: "desc" },
       take: 300,
     }),
     prisma.condominio.findMany({ orderBy: { nome: "asc" }, select: { id: true, nome: true } }),
+    prisma.categoriaDocumento.findMany({
+      where: { ativo: true },
+      orderBy: [{ ordem: "asc" }, { nome: "asc" }],
+      select: { id: true, nome: true },
+    }),
   ]);
 
   const limiteAlerta = new Date();
@@ -107,7 +100,11 @@ export default async function DocumentosPage({
           </p>
         </div>
         {podeEditar && (
-          <DocumentoFormDialog condominios={condominios} condominioIdPadrao={params.condominioId} />
+          <DocumentoFormDialog
+            condominios={condominios}
+            categorias={categorias}
+            condominioIdPadrao={params.condominioId}
+          />
         )}
       </div>
 
@@ -130,7 +127,7 @@ export default async function DocumentosPage({
         </div>
       )}
 
-      <FiltroDocumentos condominios={condominios} valoresAtuais={params} />
+      <FiltroDocumentos condominios={condominios} categorias={categorias} valoresAtuais={params} />
 
       <Card>
         <CardHeader>
@@ -172,7 +169,7 @@ export default async function DocumentosPage({
                       {d.condominio?.nome ?? "Geral"}
                     </TableCell>
                     <TableCell>
-                      <Badge variant="outline">{CATEGORIA_LABEL[d.categoria] ?? d.categoria}</Badge>
+                      <Badge variant="outline">{d.categoria.nome}</Badge>
                     </TableCell>
                     <TableCell>
                       {situacao ? (
@@ -200,11 +197,12 @@ export default async function DocumentosPage({
                           <>
                             <DocumentoFormDialog
                               condominios={condominios}
+                              categorias={categorias}
                               documento={{
                                 id: d.id,
                                 nome: d.nome,
                                 descricao: d.descricao,
-                                categoria: d.categoria,
+                                categoriaId: d.categoriaId,
                                 dataValidade: d.dataValidade,
                               }}
                             />

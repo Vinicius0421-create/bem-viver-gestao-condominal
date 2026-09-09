@@ -30,6 +30,7 @@ type Sindico = { id: string; nome: string };
 type CondominioInicial = {
   id: string;
   nome: string;
+  razaoSocial: string | null;
   cnpj: string | null;
   endereco: string | null;
   cidade: string | null;
@@ -86,6 +87,16 @@ export function CondominioFormDialog({
           <div className="space-y-1.5 sm:col-span-2">
             <Label htmlFor="nome">Nome do condomínio *</Label>
             <Input id="nome" name="nome" defaultValue={condominio?.nome} required />
+          </div>
+
+          <div className="space-y-1.5 sm:col-span-2">
+            <Label htmlFor="razaoSocial">Razão social</Label>
+            <Input
+              id="razaoSocial"
+              name="razaoSocial"
+              defaultValue={condominio?.razaoSocial ?? ""}
+              placeholder="Nome empresarial oficial, se diferente do nome usual"
+            />
           </div>
 
           <div className="space-y-1.5">

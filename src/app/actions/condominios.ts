@@ -31,6 +31,7 @@ export async function salvarCondominio(
 
   const payload = {
     nome: data.nome,
+    razaoSocial: toNullable(data.razaoSocial),
     cnpj: toNullable(data.cnpj),
     endereco: toNullable(data.endereco),
     cidade: toNullable(data.cidade),

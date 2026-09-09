@@ -18,11 +18,13 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { CategoriaFormDialog } from "@/components/cadastros/categoria-form-dialog";
+import { CategoriaDocumentoFormDialog } from "@/components/cadastros/categoria-documento-form-dialog";
 import { ConfirmActionButton } from "@/components/shared/confirm-action-button";
 import { inativarCategoria } from "@/app/actions/categorias";
+import { inativarCategoriaDocumento } from "@/app/actions/categorias-documento";
 import { Ban } from "lucide-react";
 
-export const metadata: Metadata = { title: "Categorias Financeiras" };
+export const metadata: Metadata = { title: "Categorias" };
 
 const NATUREZA_LABEL: Record<string, string> = {
   FIXA: "Fixa",
@@ -35,10 +37,16 @@ export default async function CategoriasPage() {
   const session = await requireRole("GESTOR");
   const podeInativar = papelAtendeMinimo(session.papel, "ADMIN");
 
-  const categorias = await prisma.categoriaFinanceira.findMany({
-    where: { ativo: true },
-    orderBy: [{ tipo: "asc" }, { nome: "asc" }],
-  });
+  const [categorias, categoriasDocumento] = await Promise.all([
+    prisma.categoriaFinanceira.findMany({
+      where: { ativo: true },
+      orderBy: [{ tipo: "asc" }, { nome: "asc" }],
+    }),
+    prisma.categoriaDocumento.findMany({
+      where: { ativo: true },
+      orderBy: [{ ordem: "asc" }, { nome: "asc" }],
+    }),
+  ]);
 
   const receitas = categorias.filter((c) => c.tipo === "RECEITA");
   const despesas = categorias.filter((c) => c.tipo === "DESPESA");
@@ -122,6 +130,67 @@ export default async function CategoriasPage() {
           </Card>
         ))}
       </div>
+
+      <div className="flex flex-col justify-between gap-3 pt-4 sm:flex-row sm:items-center">
+        <div>
+          <h2 className="font-display text-xl font-semibold text-foreground">
+            Categorias de Documento
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            Usadas na Central de Documentos para classificar contratos, atas, comprovantes etc.
+          </p>
+        </div>
+        <CategoriaDocumentoFormDialog />
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Categorias ativas</CardTitle>
+          <CardDescription>{categoriasDocumento.length} categoria(s)</CardDescription>
+        </CardHeader>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Nome</TableHead>
+                <TableHead className="text-right">Ações</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {categoriasDocumento.map((c) => (
+                <TableRow key={c.id}>
+                  <TableCell className="flex items-center gap-2 font-medium">
+                    <span
+                      className="h-2.5 w-2.5 rounded-full"
+                      style={{ backgroundColor: c.cor ?? "#b3892f" }}
+                    />
+                    {c.nome}
+                    {c.padraoSistema && (
+                      <Badge variant="muted" className="ml-1">
+                        padrão
+                      </Badge>
+                    )}
+                  </TableCell>
+                  <TableCell className="flex justify-end gap-1 text-right">
+                    <CategoriaDocumentoFormDialog
+                      categoria={{ id: c.id, nome: c.nome, cor: c.cor, ordem: c.ordem }}
+                    />
+                    {podeInativar && !c.padraoSistema && (
+                      <ConfirmActionButton
+                        action={inativarCategoriaDocumento.bind(null, c.id)}
+                        titulo="Inativar categoria"
+                        descricao={`"${c.nome}" deixará de aparecer para novos documentos, mas o histórico já classificado com ela é preservado.`}
+                        labelBotao="Inativar"
+                        icon={<Ban className="h-4 w-4" />}
+                      />
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
     </div>
   );
 }

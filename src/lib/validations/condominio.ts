@@ -2,6 +2,7 @@ import * as z from "zod";
 
 export const CondominioSchema = z.object({
   nome: z.string().min(2, { error: "Informe o nome do condomínio." }).trim(),
+  razaoSocial: z.string().trim().optional().or(z.literal("")),
   cnpj: z.string().trim().optional().or(z.literal("")),
   endereco: z.string().trim().optional().or(z.literal("")),
   cidade: z.string().trim().optional().or(z.literal("")),

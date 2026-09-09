@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter, Playfair_Display } from "next/font/google";
 import { Toaster } from "sonner";
 import "./globals.css";
@@ -24,6 +24,19 @@ export const metadata: Metadata = {
   },
   description:
     "Sistema de gestão condominial da Bem Viver Assessoria — prestação de contas, financeiro e administração de condomínios.",
+  manifest: "/manifest.json",
+  // Favicon/ícone principal: convenção de arquivo do Next.js
+  // (src/app/icon.svg + src/app/favicon.ico + src/app/apple-icon.png) já
+  // gera as tags automaticamente — não redeclarar aqui para não duplicar.
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Bem Viver",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#0e0d0b",
 };
 
 export default function RootLayout({

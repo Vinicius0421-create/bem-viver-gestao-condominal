@@ -117,6 +117,7 @@ export default async function CondominiosPage() {
                         condominio={{
                           id: c.id,
                           nome: c.nome,
+                          razaoSocial: c.razaoSocial,
                           cnpj: c.cnpj,
                           endereco: c.endereco,
                           cidade: c.cidade,
