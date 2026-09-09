@@ -100,6 +100,7 @@ export default async function CondominioDetalhePage({
     qtdContratosVencendo,
     qtdAssembleiasAgendadas,
     qtdAssembleiasProximas,
+    fundoReservaRecente,
   ] = await Promise.all([
       prisma.lancamentoFinanceiro.findMany({
         where: { condominioId: id, excluidoEm: null },
@@ -154,6 +155,10 @@ export default async function CondominioDetalhePage({
           dataHora: { lte: limiteAlertaAssembleias },
         },
       }),
+      prisma.movimentoFundoReserva.findFirst({
+        where: { condominioId: id },
+        orderBy: [{ competenciaAno: "desc" }, { competenciaMes: "desc" }],
+      }),
     ]);
 
   const qtdUnidadesInadimplentes = titulosVencidosPorUnidade.length;
@@ -192,7 +197,7 @@ export default async function CondominioDetalhePage({
         </p>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-8">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-9">
         <Card>
           <CardHeader className="pb-1">
             <CardDescription>Síndico responsável</CardDescription>
@@ -307,6 +312,31 @@ export default async function CondominioDetalhePage({
                 <Link href={`/dashboard/assembleias?condominioId=${id}`}>Ver</Link>
               </Button>
             </div>
+          </CardHeader>
+        </Card>
+        <Card>
+          <CardHeader className="pb-1">
+            <CardDescription>Fundo de reserva</CardDescription>
+            <div className="flex items-center justify-between gap-2">
+              <CardTitle className="text-base">
+                {fundoReservaRecente
+                  ? formatCurrencyBRL(fundoReservaRecente.saldoFinal.toString())
+                  : "Sem registros"}
+              </CardTitle>
+              <Button variant="outline" size="sm" asChild>
+                <Link href={`/dashboard/financeiro/fundo-reserva?condominioId=${id}`}>
+                  Gerenciar
+                </Link>
+              </Button>
+            </div>
+            {fundoReservaRecente && (
+              <p className="text-xs text-muted-foreground">
+                {competenciaLabel(
+                  fundoReservaRecente.competenciaMes,
+                  fundoReservaRecente.competenciaAno
+                )}
+              </p>
+            )}
           </CardHeader>
         </Card>
       </div>

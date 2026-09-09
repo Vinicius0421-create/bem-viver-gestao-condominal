@@ -17,6 +17,7 @@ import {
   FolderOpen,
   FileSignature,
   CalendarClock,
+  PiggyBank,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { PapelUsuario } from "@/generated/prisma/enums";
@@ -56,6 +57,7 @@ const NAV_GROUPS: NavGroup[] = [
       { href: "/dashboard/financeiro/lancamentos", label: "Lançamentos", icon: ArrowDownUp },
       { href: "/dashboard/financeiro/titulos", label: "Contas a Pagar/Receber", icon: Wallet },
       { href: "/dashboard/financeiro/fluxo-de-caixa", label: "Fluxo de Caixa", icon: Landmark },
+      { href: "/dashboard/financeiro/fundo-reserva", label: "Fundo de Reserva", icon: PiggyBank },
     ],
   },
   {
