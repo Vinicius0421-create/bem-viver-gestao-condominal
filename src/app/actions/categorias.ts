@@ -18,11 +18,56 @@ export async function salvarCategoria(
     return { success: false, error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
   }
   const data = parsed.data;
+  // "nenhuma" é o valor sentinela usado pelo <Select> (Radix não aceita
+  // value="" em SelectItem) para representar "sem categoria-mãe".
+  const categoriaPaiId =
+    data.categoriaPaiId && data.categoriaPaiId !== "nenhuma" ? data.categoriaPaiId : null;
+
+  // Hierarquia de 1 nível só: a categoria-mãe escolhida precisa existir,
+  // ter o mesmo tipo (receita/despesa) e não pode ser ela mesma uma
+  // subcategoria — evita criar uma cadeia de 3+ níveis, que não tem
+  // representação na UI (lista simples de categorias + subcategorias).
+  if (categoriaPaiId) {
+    if (categoriaPaiId === id) {
+      return { success: false, error: "Uma categoria não pode ser subcategoria de si mesma." };
+    }
+    const pai = await prisma.categoriaFinanceira.findUnique({ where: { id: categoriaPaiId } });
+    if (!pai) {
+      return { success: false, error: "Categoria-mãe selecionada não existe." };
+    }
+    if (pai.categoriaPaiId) {
+      return {
+        success: false,
+        error: "Só é permitido um nível de subcategoria — selecione uma categoria principal como mãe.",
+      };
+    }
+    if (pai.tipo !== data.tipo) {
+      return {
+        success: false,
+        error: "A subcategoria precisa ser do mesmo tipo (receita/despesa) da categoria-mãe.",
+      };
+    }
+  }
+
+  // Uma categoria que já tem subcategorias não pode virar subcategoria de
+  // outra — evitaria "orfanizar" a hierarquia dela.
+  if (id && categoriaPaiId) {
+    const temFilhas = await prisma.categoriaFinanceira.count({ where: { categoriaPaiId: id } });
+    if (temFilhas > 0) {
+      return {
+        success: false,
+        error: "Esta categoria já tem subcategorias — não pode virar subcategoria de outra.",
+      };
+    }
+  }
+
   const payload = {
     nome: data.nome,
     tipo: data.tipo,
     natureza: data.natureza,
     cor: data.cor || "#C9A227",
+    ordem: data.ordem ?? 0,
+    categoriaPaiId,
   };
 
   try {

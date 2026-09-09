@@ -297,13 +297,22 @@ model CategoriaFinanceira {
   tipo          TipoLancamento
   natureza      NaturezaLancamento @default(FIXA)
   cor           String?            @default("#C9A227")
+  ordem         Int                @default(0)
   padraoSistema Boolean            @default(false)
   ativo         Boolean            @default(true)
+
+  // Hierarquia de 1 nível só (categoria-mãe → subcategorias). Uma
+  // subcategoria não pode por sua vez ter subcategorias — validado na
+  // Server Action, não no banco, para manter o schema simples.
+  categoriaPaiId String?
+  categoriaPai   CategoriaFinanceira?   @relation("SubcategoriasFinanceiras", fields: [categoriaPaiId], references: [id], onDelete: SetNull)
+  subcategorias  CategoriaFinanceira[]  @relation("SubcategoriasFinanceiras")
 
   lancamentos LancamentoFinanceiro[]
   titulos     TituloFinanceiro[]
 
   @@unique([nome, tipo])
+  @@index([categoriaPaiId])
   @@map("categorias_financeiras")
 }
 

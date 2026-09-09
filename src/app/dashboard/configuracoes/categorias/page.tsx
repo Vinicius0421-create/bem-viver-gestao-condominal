@@ -40,13 +40,20 @@ export default async function CategoriasPage() {
   const [categorias, categoriasDocumento] = await Promise.all([
     prisma.categoriaFinanceira.findMany({
       where: { ativo: true },
-      orderBy: [{ tipo: "asc" }, { nome: "asc" }],
+      orderBy: [{ tipo: "asc" }, { ordem: "asc" }, { nome: "asc" }],
     }),
     prisma.categoriaDocumento.findMany({
       where: { ativo: true },
       orderBy: [{ ordem: "asc" }, { nome: "asc" }],
     }),
   ]);
+
+  // Só categorias principais (sem mãe) podem ser escolhidas como mãe de
+  // outra — hierarquia de 1 nível só, ver actions/categorias.ts.
+  const categoriasPai = categorias
+    .filter((c) => !c.categoriaPaiId)
+    .map((c) => ({ id: c.id, nome: c.nome, tipo: c.tipo }));
+  const nomePorId = new Map(categorias.map((c) => [c.id, c.nome]));
 
   const receitas = categorias.filter((c) => c.tipo === "RECEITA");
   const despesas = categorias.filter((c) => c.tipo === "DESPESA");
@@ -62,7 +69,7 @@ export default async function CategoriasPage() {
             Plano de contas utilizado nos lançamentos e prestações de contas
           </p>
         </div>
-        <CategoriaFormDialog />
+        <CategoriaFormDialog categoriasPai={categoriasPai} />
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
@@ -87,7 +94,14 @@ export default async function CategoriasPage() {
                 <TableBody>
                   {grupo.lista.map((c) => (
                     <TableRow key={c.id}>
-                      <TableCell className="flex items-center gap-2 font-medium">
+                      <TableCell
+                        className={`flex items-center gap-2 font-medium ${c.categoriaPaiId ? "pl-6" : ""}`}
+                      >
+                        {c.categoriaPaiId && (
+                          <span className="text-muted-foreground" aria-hidden>
+                            ↳
+                          </span>
+                        )}
                         <span
                           className="h-2.5 w-2.5 rounded-full"
                           style={{ backgroundColor: c.cor ?? "#C9A227" }}
@@ -97,6 +111,11 @@ export default async function CategoriasPage() {
                           <Badge variant="muted" className="ml-1">
                             padrão
                           </Badge>
+                        )}
+                        {c.categoriaPaiId && (
+                          <span className="text-xs text-muted-foreground">
+                            de {nomePorId.get(c.categoriaPaiId) ?? "—"}
+                          </span>
                         )}
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
@@ -110,7 +129,10 @@ export default async function CategoriasPage() {
                             tipo: c.tipo,
                             natureza: c.natureza,
                             cor: c.cor,
+                            ordem: c.ordem,
+                            categoriaPaiId: c.categoriaPaiId,
                           }}
+                          categoriasPai={categoriasPai}
                         />
                         {podeInativar && !c.padraoSistema && (
                           <ConfirmActionButton

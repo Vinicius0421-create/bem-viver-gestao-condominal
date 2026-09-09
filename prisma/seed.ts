@@ -74,39 +74,87 @@ async function main() {
     nome: string;
     tipo: "RECEITA" | "DESPESA";
     natureza: "FIXA" | "EXTRA" | "BANCARIA" | "REPASSE";
+    ordem: number;
+    // Nome da categoria-mãe (mesmo tipo), para as poucas subcategorias do
+    // catálogo. Hierarquia de 1 nível só — ver actions/categorias.ts.
+    paiNome?: string;
   };
 
   const categorias: CategoriaSeed[] = [
-    { nome: "Taxa de Condomínio", tipo: "RECEITA", natureza: "FIXA" },
-    { nome: "Multas e Juros", tipo: "RECEITA", natureza: "EXTRA" },
-    { nome: "Repasse de Cobrança/Terceiros", tipo: "RECEITA", natureza: "REPASSE" },
-    { nome: "Resgate de Aplicação Financeira", tipo: "RECEITA", natureza: "EXTRA" },
-    { nome: "Aluguel de Área Comum", tipo: "RECEITA", natureza: "EXTRA" },
-    { nome: "Outras Receitas", tipo: "RECEITA", natureza: "EXTRA" },
+    { nome: "Taxa de Condomínio", tipo: "RECEITA", natureza: "FIXA", ordem: 1 },
+    {
+      nome: "Cotas Extraordinárias/Rateio",
+      tipo: "RECEITA",
+      natureza: "EXTRA",
+      ordem: 2,
+      paiNome: "Taxa de Condomínio",
+    },
+    { nome: "Multas e Juros", tipo: "RECEITA", natureza: "EXTRA", ordem: 3 },
+    { nome: "Repasse de Cobrança/Terceiros", tipo: "RECEITA", natureza: "REPASSE", ordem: 4 },
+    { nome: "Resgate de Aplicação Financeira", tipo: "RECEITA", natureza: "EXTRA", ordem: 5 },
+    { nome: "Aluguel de Área Comum", tipo: "RECEITA", natureza: "EXTRA", ordem: 6 },
+    { nome: "Outras Receitas", tipo: "RECEITA", natureza: "EXTRA", ordem: 99 },
 
-    { nome: "Energia Elétrica", tipo: "DESPESA", natureza: "FIXA" },
-    { nome: "Água e Esgoto", tipo: "DESPESA", natureza: "FIXA" },
-    { nome: "Internet/Telefonia", tipo: "DESPESA", natureza: "FIXA" },
-    { nome: "Limpeza e Conservação", tipo: "DESPESA", natureza: "FIXA" },
-    { nome: "Honorários Bem Viver", tipo: "DESPESA", natureza: "FIXA" },
-    { nome: "Pagamento Síndico", tipo: "DESPESA", natureza: "FIXA" },
-    { nome: "Financiamento/Obra", tipo: "DESPESA", natureza: "FIXA" },
-    { nome: "Tarifa Bancária", tipo: "DESPESA", natureza: "BANCARIA" },
-    { nome: "Manutenção e Reparos", tipo: "DESPESA", natureza: "EXTRA" },
-    { nome: "Serviços Cartorários/Jurídicos", tipo: "DESPESA", natureza: "EXTRA" },
-    { nome: "Seguro Predial", tipo: "DESPESA", natureza: "EXTRA" },
-    { nome: "Sinalização e Segurança", tipo: "DESPESA", natureza: "EXTRA" },
-    { nome: "Outras Despesas", tipo: "DESPESA", natureza: "EXTRA" },
+    { nome: "Água e Esgoto", tipo: "DESPESA", natureza: "FIXA", ordem: 1 },
+    { nome: "Energia Elétrica", tipo: "DESPESA", natureza: "FIXA", ordem: 2 },
+    { nome: "Gás", tipo: "DESPESA", natureza: "FIXA", ordem: 3 },
+    { nome: "Internet/Telefonia", tipo: "DESPESA", natureza: "FIXA", ordem: 4 },
+    { nome: "Limpeza e Conservação", tipo: "DESPESA", natureza: "FIXA", ordem: 5 },
+    { nome: "Portaria e Vigilância", tipo: "DESPESA", natureza: "FIXA", ordem: 6 },
+    { nome: "Manutenção de Elevadores", tipo: "DESPESA", natureza: "FIXA", ordem: 7 },
+    {
+      nome: "Manutenção de CFTV e Portão Eletrônico",
+      tipo: "DESPESA",
+      natureza: "FIXA",
+      ordem: 8,
+    },
+    { nome: "Dedetização e Controle de Pragas", tipo: "DESPESA", natureza: "EXTRA", ordem: 9 },
+    { nome: "Sinalização e Segurança", tipo: "DESPESA", natureza: "EXTRA", ordem: 10 },
+    { nome: "Honorários Bem Viver", tipo: "DESPESA", natureza: "FIXA", ordem: 11 },
+    { nome: "Pagamento Síndico", tipo: "DESPESA", natureza: "FIXA", ordem: 12 },
+    {
+      nome: "Folha de Pagamento e Encargos (Funcionários)",
+      tipo: "DESPESA",
+      natureza: "FIXA",
+      ordem: 13,
+    },
+    { nome: "Financiamento/Obra", tipo: "DESPESA", natureza: "FIXA", ordem: 14 },
+    { nome: "Contribuição ao Fundo de Reserva", tipo: "DESPESA", natureza: "FIXA", ordem: 15 },
+    { nome: "Tarifa Bancária", tipo: "DESPESA", natureza: "BANCARIA", ordem: 16 },
+    { nome: "Manutenção e Reparos", tipo: "DESPESA", natureza: "EXTRA", ordem: 17 },
+    { nome: "Serviços Cartorários/Jurídicos", tipo: "DESPESA", natureza: "EXTRA", ordem: 18 },
+    { nome: "Seguro Predial", tipo: "DESPESA", natureza: "EXTRA", ordem: 19 },
+    { nome: "Outras Despesas", tipo: "DESPESA", natureza: "EXTRA", ordem: 99 },
   ];
 
+  // Duas passagens: primeiro todas as categorias sem categoriaPaiId (para
+  // toda categoria-mãe já existir com id conhecido), depois aplica o
+  // vínculo de subcategoria nas que declaram paiNome.
   const catId = new Map<string, string>();
   for (const c of categorias) {
     const rec = await prisma.categoriaFinanceira.upsert({
       where: { nome_tipo: { nome: c.nome, tipo: c.tipo } },
       update: {},
-      create: { ...c, padraoSistema: true },
+      create: {
+        nome: c.nome,
+        tipo: c.tipo,
+        natureza: c.natureza,
+        ordem: c.ordem,
+        padraoSistema: true,
+      },
     });
     catId.set(`${c.tipo}:${c.nome}`, rec.id);
+  }
+  for (const c of categorias) {
+    if (!c.paiNome) continue;
+    const paiId = catId.get(`${c.tipo}:${c.paiNome}`);
+    const filhaId = catId.get(`${c.tipo}:${c.nome}`);
+    if (paiId && filhaId) {
+      await prisma.categoriaFinanceira.update({
+        where: { id: filhaId },
+        data: { categoriaPaiId: paiId },
+      });
+    }
   }
   console.log(`${categorias.length} categorias financeiras padrão criadas.`);
 

@@ -26,7 +26,7 @@ import {
 } from "@/components/ui/dialog";
 
 type Opcao = { id: string; nome: string };
-type CategoriaOpcao = Opcao & { tipo: "RECEITA" | "DESPESA" };
+type CategoriaOpcao = Opcao & { tipo: "RECEITA" | "DESPESA"; categoriaPaiId?: string | null };
 type UnidadeOpcao = { id: string; condominioId: string; identificacao: string; bloco: string | null };
 
 // Formato aceito pelo <input type="date">, e é o mesmo formato que
@@ -200,7 +200,7 @@ export function TituloFormDialog({
                 <SelectContent>
                   {categoriasDoTipo.map((c) => (
                     <SelectItem key={c.id} value={c.id}>
-                      {c.nome}
+                      {c.categoriaPaiId ? `— ${c.nome}` : c.nome}
                     </SelectItem>
                   ))}
                 </SelectContent>

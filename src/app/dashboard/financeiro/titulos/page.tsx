@@ -52,7 +52,8 @@ export default async function TitulosPage() {
     prisma.condominio.findMany({ orderBy: { nome: "asc" }, select: { id: true, nome: true } }),
     prisma.categoriaFinanceira.findMany({
       where: { ativo: true },
-      select: { id: true, nome: true, tipo: true },
+      orderBy: [{ tipo: "asc" }, { ordem: "asc" }, { nome: "asc" }],
+      select: { id: true, nome: true, tipo: true, categoriaPaiId: true },
     }),
     prisma.fornecedor.findMany({
       where: { ativo: true },

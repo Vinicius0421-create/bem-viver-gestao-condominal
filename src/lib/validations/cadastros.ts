@@ -25,6 +25,8 @@ export const CategoriaFinanceiraSchema = z.object({
   tipo: z.enum(["RECEITA", "DESPESA"]),
   natureza: z.enum(["FIXA", "EXTRA", "BANCARIA", "REPASSE"]),
   cor: z.string().trim().optional().or(z.literal("")),
+  ordem: z.coerce.number().int().optional().nullable(),
+  categoriaPaiId: z.string().trim().optional().or(z.literal("")),
 });
 export type CategoriaFinanceiraFormValues = z.infer<typeof CategoriaFinanceiraSchema>;
 

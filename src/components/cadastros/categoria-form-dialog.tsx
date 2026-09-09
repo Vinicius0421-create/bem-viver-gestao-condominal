@@ -29,13 +29,34 @@ type CategoriaInicial = {
   tipo: string;
   natureza: string;
   cor: string | null;
+  ordem?: number;
+  categoriaPaiId?: string | null;
 };
 
-export function CategoriaFormDialog({ categoria }: { categoria?: CategoriaInicial }) {
+// Só categorias principais (sem categoriaPaiId) entram aqui — hierarquia de
+// 1 nível só, então uma subcategoria nunca aparece como opção de mãe.
+type CategoriaPaiOpcao = { id: string; nome: string; tipo: string };
+
+export function CategoriaFormDialog({
+  categoria,
+  categoriasPai = [],
+}: {
+  categoria?: CategoriaInicial;
+  categoriasPai?: CategoriaPaiOpcao[];
+}) {
   const [open, setOpen] = useState(false);
   const { submit, pending, error } = useDialogAction(salvarCategoria, () => setOpen(false));
+  const [tipo, setTipo] = useState<"RECEITA" | "DESPESA">(
+    (categoria?.tipo as "RECEITA" | "DESPESA") ?? "DESPESA"
+  );
 
   const isEdit = Boolean(categoria);
+  // Uma categoria não pode ser mãe de si mesma, e (ao editar) só faz
+  // sentido oferecer categorias-mãe do mesmo tipo selecionado no formulário.
+  const opcoesPai = categoriasPai.filter((c) => c.id !== categoria?.id && c.tipo === tipo);
+  // Categorias que já têm subcategorias não podem virar subcategoria de
+  // outra — a Server Action também valida isso, aqui é só uma pista visual.
+  const jaESubcategoria = Boolean(categoria?.categoriaPaiId);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -64,7 +85,7 @@ export function CategoriaFormDialog({ categoria }: { categoria?: CategoriaInicia
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <Label htmlFor="tipo">Tipo *</Label>
-              <Select name="tipo" defaultValue={categoria?.tipo ?? "DESPESA"}>
+              <Select name="tipo" value={tipo} onValueChange={(v) => setTipo(v as "RECEITA" | "DESPESA")}>
                 <SelectTrigger id="tipo">
                   <SelectValue />
                 </SelectTrigger>
@@ -90,8 +111,45 @@ export function CategoriaFormDialog({ categoria }: { categoria?: CategoriaInicia
             </div>
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="cor">Cor (opcional)</Label>
-            <Input id="cor" name="cor" type="color" defaultValue={categoria?.cor ?? "#C9A227"} className="h-9 w-16 p-1" />
+            <Label htmlFor="categoriaPaiId">Subcategoria de (opcional)</Label>
+            <Select
+              name="categoriaPaiId"
+              defaultValue={categoria?.categoriaPaiId ?? "nenhuma"}
+              disabled={jaESubcategoria}
+            >
+              <SelectTrigger id="categoriaPaiId">
+                <SelectValue placeholder="Categoria principal" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="nenhuma">Nenhuma — categoria principal</SelectItem>
+                {opcoesPai.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.nome}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              {jaESubcategoria
+                ? "Esta categoria já é uma subcategoria — só é permitido 1 nível de hierarquia."
+                : "Deixe em branco para uma categoria principal. Só categorias do mesmo tipo (receita/despesa) aparecem aqui."}
+            </p>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="cor">Cor (opcional)</Label>
+              <Input
+                id="cor"
+                name="cor"
+                type="color"
+                defaultValue={categoria?.cor ?? "#C9A227"}
+                className="h-9 w-16 p-1"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="ordem">Ordem</Label>
+              <Input id="ordem" name="ordem" type="number" defaultValue={categoria?.ordem ?? 0} />
+            </div>
           </div>
           {error && (
             <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">

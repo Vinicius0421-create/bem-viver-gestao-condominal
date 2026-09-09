@@ -25,7 +25,7 @@ import {
 } from "@/components/ui/dialog";
 
 type Opcao = { id: string; nome: string };
-type CategoriaOpcao = Opcao & { tipo: "RECEITA" | "DESPESA" };
+type CategoriaOpcao = Opcao & { tipo: "RECEITA" | "DESPESA"; categoriaPaiId?: string | null };
 
 type LancamentoInicial = {
   id: string;
@@ -143,7 +143,7 @@ export function LancamentoFormDialog({
               <SelectContent>
                 {categoriasDoTipo.map((c) => (
                   <SelectItem key={c.id} value={c.id}>
-                    {c.nome}
+                    {c.categoriaPaiId ? `— ${c.nome}` : c.nome}
                   </SelectItem>
                 ))}
               </SelectContent>
