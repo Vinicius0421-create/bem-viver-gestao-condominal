@@ -5,11 +5,47 @@ import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/dal";
 import { registrarAuditoria } from "@/lib/audit";
 import { CondominioSchema } from "@/lib/validations/condominio";
+import type { Prisma } from "@/generated/prisma/client";
 
 export type ActionState = { success: boolean; error?: string } | undefined;
 
 function toNullable(value: string | undefined | null) {
   return value && value.length > 0 ? value : null;
+}
+
+// Histórico de mandato de síndico (Fase 1 do Sistema de Gestão, set/2026)
+// — ver comentário no enum PapelRepresentanteCondominio no schema.prisma
+// para o racional completo. Chamada sempre que `Condominio.sindicoId`
+// muda (inclusive de/para null), dentro da mesma transação da atualização
+// do condomínio: encerra o mandato SINDICO ativo (se houver) e, se um novo
+// síndico foi definido, copia seus dados de contato para um novo registro
+// histórico. Nunca lança se não houver nada para encerrar/criar.
+async function historizarTrocaDeSindico(
+  tx: Prisma.TransactionClient,
+  condominioId: string,
+  novoSindicoId: string | null
+) {
+  await tx.representanteCondominio.updateMany({
+    where: { condominioId, papel: "SINDICO", ativo: true },
+    data: { ativo: false, dataFim: new Date() },
+  });
+
+  if (!novoSindicoId) return;
+
+  const sindico = await tx.sindico.findUnique({ where: { id: novoSindicoId } });
+  if (!sindico) return;
+
+  await tx.representanteCondominio.create({
+    data: {
+      condominioId,
+      papel: "SINDICO",
+      nome: sindico.nome,
+      cpf: sindico.cpf,
+      email: sindico.email,
+      telefone: sindico.telefone,
+      ativo: true,
+    },
+  });
 }
 
 // Ação única de "salvar" (cria se não houver `id` oculto no formulário,
@@ -52,7 +88,12 @@ export async function salvarCondominio(
     if (id) {
       const antes = await prisma.condominio.findUnique({ where: { id } });
       if (!antes) return { success: false, error: "Condomínio não encontrado." };
-      await prisma.condominio.update({ where: { id }, data: payload });
+      await prisma.$transaction(async (tx) => {
+        await tx.condominio.update({ where: { id }, data: payload });
+        if (payload.sindicoId !== antes.sindicoId) {
+          await historizarTrocaDeSindico(tx, id, payload.sindicoId);
+        }
+      });
       await registrarAuditoria({
         usuarioId: session.userId,
         acao: "ATUALIZACAO",
@@ -63,7 +104,13 @@ export async function salvarCondominio(
       });
       revalidatePath(`/dashboard/condominios/${id}`);
     } else {
-      const criado = await prisma.condominio.create({ data: payload });
+      const criado = await prisma.$transaction(async (tx) => {
+        const novo = await tx.condominio.create({ data: payload });
+        if (payload.sindicoId) {
+          await historizarTrocaDeSindico(tx, novo.id, payload.sindicoId);
+        }
+        return novo;
+      });
       await registrarAuditoria({
         usuarioId: session.userId,
         acao: "CRIACAO",

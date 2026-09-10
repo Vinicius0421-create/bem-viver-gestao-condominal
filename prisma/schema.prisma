@@ -135,6 +135,7 @@ model Condominio {
   assembleias      Assembleia[]
   representantes   RepresentanteCondominio[]
   contatos         ContatoCondominio[]
+  garantidoras     CondominioGarantidora[]
 
   @@map("condominios")
 }
@@ -143,15 +144,31 @@ enum PapelRepresentanteCondominio {
   SUBSINDICO
   CONSELHEIRO
   CONSELHEIRO_PRESIDENTE
+  // Histórico de síndico (Fase 1 do Sistema de Gestão — Relatório de
+  // Descoberta, set/2026). `Condominio.sindicoId`/`Sindico` continuam sendo
+  // o ponteiro "atual" (conveniente para exibição rápida e para reaproveitar
+  // um mesmo síndico profissional em vários condomínios), mas não guardavam
+  // histórico: trocar o síndico perdia silenciosamente quem ocupou o cargo
+  // antes. A auditoria do Drive dos 5 condomínios (set/2026) encontrou 3
+  // casos reais de troca de síndico em menos de 2 anos — inclusive um caso
+  // em que um documento formal foi assinado pelo síndico já renunciante,
+  // um risco jurídico real que só é detectável com histórico de mandato.
+  // Toda troca de `Condominio.sindicoId` agora também encerra o registro
+  // SINDICO ativo (dataFim=hoje, ativo=false) e cria um novo — mesmo padrão
+  // já validado aqui para subsíndico/conselho e em `Morador`.
+  SINDICO
 }
 
-// Subsíndico e membros do conselho (fiscal/consultivo) do condomínio.
+// Subsíndico, conselho e histórico de síndico do condomínio.
 // Segue o mesmo padrão de histórico já validado em `Morador` (Sprint 6):
 // `ativo` + `dataInicio`/`dataFim` respondem "quem ocupava este papel em
 // determinada data" sem apagar histórico ao trocar de gestão. O síndico
-// titular continua modelado por `Sindico`/`Condominio.sindicoId` (já
-// existente); este modelo cobre os papéis que a Bem Viver ainda não tinha
-// estrutura própria para registrar (Fase 1 do PLANO-EVOLUCAO-V2.md).
+// titular *atual* continua modelado por `Sindico`/`Condominio.sindicoId`
+// (já existente, mantido por conveniência/reaproveitamento entre
+// condomínios); este modelo cobre os papéis que a Bem Viver ainda não tinha
+// estrutura própria para registrar (Fase 1 do PLANO-EVOLUCAO-V2.md) e,
+// desde set/2026, também o histórico de mandatos de síndico (papel
+// SINDICO) — ver `salvarCondominio`.
 model RepresentanteCondominio {
   id           String                       @id @default(cuid())
   condominioId String
@@ -193,6 +210,67 @@ model ContatoCondominio {
 
   @@index([condominioId, ativo])
   @@map("contatos_condominio")
+}
+
+// Empresa terceirizada de garantia/cobrança (ex.: "Confiança Condomínio
+// Garantido", "LLZ Solução Cobrança") — Fase 1 do Sistema de Gestão
+// (Relatório de Descoberta, set/2026). Achado da auditoria do Drive dos 5
+// condomínios: em pelo menos 4 dos 5, a garantidora é uma peça financeira
+// central (recebe os boletos, retém uma taxa e repassa o líquido ao
+// condomínio), mas não existia como conceito no sistema — cada prestação
+// de contas só citava o nome em texto livre na descrição do lançamento.
+// Cadastro simples e reutilizável entre condomínios, no mesmo padrão de
+// `Sindico`/`Fornecedor` (não um detalhe por condomínio como
+// `ContatoCondominio`).
+model Garantidora {
+  id           String   @id @default(cuid())
+  nome         String   @unique
+  cnpj         String?  @unique
+  // Percentual padrão de taxa retida (ex.: 12.51 = 12,51%). Cada vínculo
+  // com um condomínio pode registrar uma taxa diferente da padrão em
+  // `CondominioGarantidora.taxaAplicada` (observado na prática: taxas
+  // variam de ~7,5% a ~15% entre os condomínios auditados).
+  taxaPadrao   Decimal? @db.Decimal(5, 2)
+  telefone     String?
+  email        String?
+  ativo        Boolean  @default(true)
+  observacoes  String?
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+
+  vinculos CondominioGarantidora[]
+
+  @@map("garantidoras")
+}
+
+// Vínculo historizado condomínio↔garantidora — mesmo padrão de
+// `RepresentanteCondominio`/`Morador`: `ativo`+`dataInicio`/`dataFim`
+// respondem "qual garantidora atendia este condomínio em determinada
+// data", sem apagar histórico ao trocar de prestador. A auditoria do Drive
+// confirmou pelo menos 2 trocas reais de garantidora (Montreal e Murilo II,
+// ambas de "LLZ" para "Confiança" no 2º semestre de 2025) — sem histórico,
+// relatórios antigos referenciando a garantidora anterior perdem contexto.
+// A consistência de (ativo, dataFim) — e a garantia de no máximo um vínculo
+// ativo por condomínio — é mantida pela Server Action (`vincularGarantidora`
+// encerra o vínculo ativo anterior dentro da mesma transação), não por uma
+// constraint de banco, mesmo racional já usado nos modelos irmãos acima.
+model CondominioGarantidora {
+  id            String      @id @default(cuid())
+  condominioId  String
+  condominio    Condominio  @relation(fields: [condominioId], references: [id], onDelete: Cascade)
+  garantidoraId String
+  garantidora   Garantidora @relation(fields: [garantidoraId], references: [id])
+  taxaAplicada  Decimal?    @db.Decimal(5, 2)
+  ativo         Boolean     @default(true)
+  dataInicio    DateTime    @default(now())
+  dataFim       DateTime?
+  observacoes   String?
+  criadoEm      DateTime    @default(now())
+  atualizadoEm  DateTime    @updatedAt
+
+  @@index([condominioId, ativo])
+  @@index([garantidoraId])
+  @@map("condominio_garantidoras")
 }
 
 enum StatusUnidade {

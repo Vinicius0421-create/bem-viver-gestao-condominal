@@ -9,6 +9,16 @@ export const SindicoSchema = z.object({
 });
 export type SindicoFormValues = z.infer<typeof SindicoSchema>;
 
+export const GarantidoraSchema = z.object({
+  nome: z.string().min(2, { error: "Informe o nome da garantidora." }).trim(),
+  cnpj: z.string().trim().optional().or(z.literal("")),
+  taxaPadrao: z.coerce.number().nonnegative().max(100).optional().nullable(),
+  telefone: z.string().trim().optional().or(z.literal("")),
+  email: z.email({ error: "E-mail inválido." }).optional().or(z.literal("")),
+  observacoes: z.string().trim().optional().or(z.literal("")),
+});
+export type GarantidoraFormValues = z.infer<typeof GarantidoraSchema>;
+
 export const FornecedorSchema = z.object({
   nome: z.string().min(2, { error: "Informe o nome/razão social." }).trim(),
   cnpjCpf: z.string().trim().optional().or(z.literal("")),

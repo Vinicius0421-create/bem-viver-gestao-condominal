@@ -24,9 +24,11 @@ import { ArrowLeft, FileText, RotateCcw, Archive } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { RepresentanteFormDialog } from "@/components/condominios/representante-form-dialog";
 import { ContatoCondominioFormDialog } from "@/components/condominios/contato-condominio-form-dialog";
+import { GarantidoraVinculoDialog } from "@/components/condominios/garantidora-vinculo-dialog";
 import { ConfirmActionButton } from "@/components/shared/confirm-action-button";
 import { alternarAtivoRepresentanteCondominio } from "@/app/actions/representantes-condominio";
 import { alternarAtivoContatoCondominio } from "@/app/actions/contatos-condominio";
+import { alternarAtivoCondominioGarantidora } from "@/app/actions/condominio-garantidoras";
 
 const PAPEL_REPRESENTANTE_LABEL: Record<string, string> = {
   SUBSINDICO: "Subsíndico",
@@ -72,9 +74,27 @@ export default async function CondominioDetalhePage({
       unidades: true,
       representantes: { orderBy: [{ ativo: "desc" }, { papel: "asc" }, { nome: "asc" }] },
       contatos: { orderBy: [{ ativo: "desc" }, { tipo: "asc" }] },
+      garantidoras: {
+        orderBy: [{ ativo: "desc" }, { dataInicio: "desc" }],
+        include: { garantidora: { select: { nome: true } } },
+      },
     },
   });
   if (!condominio) notFound();
+
+  // Histórico de mandato de síndico (papel SINDICO) é exibido em uma seção
+  // dedicada, separada do quadro de subsíndico/conselho — ver comentário no
+  // enum PapelRepresentanteCondominio no schema.prisma.
+  const representantesGerais = condominio.representantes.filter((r) => r.papel !== "SINDICO");
+  const historicoSindicos = condominio.representantes.filter((r) => r.papel === "SINDICO");
+
+  const garantidorasAtivas = podeEditar
+    ? await prisma.garantidora.findMany({
+        where: { ativo: true },
+        orderBy: { nome: "asc" },
+        select: { id: true, nome: true, taxaPadrao: true },
+      })
+    : [];
 
   const limiteAlertaDocumentos = new Date();
   limiteAlertaDocumentos.setHours(23, 59, 59, 999);
@@ -477,14 +497,14 @@ export default async function CondominioDetalhePage({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {condominio.representantes.length === 0 && (
+                {representantesGerais.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={4} className="py-8 text-center text-muted-foreground">
                       Nenhum subsíndico ou conselheiro cadastrado.
                     </TableCell>
                   </TableRow>
                 )}
-                {condominio.representantes.map((r) => (
+                {representantesGerais.map((r) => (
                   <TableRow key={r.id} className={r.ativo ? "" : "opacity-50"}>
                     <TableCell className="font-medium">{r.nome}</TableCell>
                     <TableCell className="text-sm text-muted-foreground">
@@ -617,6 +637,117 @@ export default async function CondominioDetalhePage({
                           )}
                         </div>
                       )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+        <Card>
+          <CardHeader className="flex-row items-center justify-between space-y-0">
+            <div>
+              <CardTitle>Garantidora de cobrança</CardTitle>
+              <CardDescription>
+                Empresa terceirizada que garante o repasse ao condomínio, se houver
+              </CardDescription>
+            </div>
+            {podeEditar && (
+              <GarantidoraVinculoDialog
+                condominioId={id}
+                garantidoras={garantidorasAtivas.map((g) => ({
+                  id: g.id,
+                  nome: g.nome,
+                  taxaPadrao: g.taxaPadrao?.toString() ?? null,
+                }))}
+                temVinculoAtivo={condominio.garantidoras.some((v) => v.ativo)}
+              />
+            )}
+          </CardHeader>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Garantidora</TableHead>
+                  <TableHead>Taxa aplicada</TableHead>
+                  <TableHead>Vigência</TableHead>
+                  {podeInativar && <TableHead className="w-20" />}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {condominio.garantidoras.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={4} className="py-8 text-center text-muted-foreground">
+                      Este condomínio não utiliza garantidora terceirizada.
+                    </TableCell>
+                  </TableRow>
+                )}
+                {condominio.garantidoras.map((v) => (
+                  <TableRow key={v.id} className={v.ativo ? "" : "opacity-50"}>
+                    <TableCell className="font-medium">{v.garantidora.nome}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {v.taxaAplicada ? `${v.taxaAplicada}%` : "—"}
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {formatDatePtBR(v.dataInicio)} —{" "}
+                      {v.dataFim ? formatDatePtBR(v.dataFim) : "atual"}
+                    </TableCell>
+                    {podeInativar && (
+                      <TableCell>
+                        {v.ativo && (
+                          <ConfirmActionButton
+                            action={alternarAtivoCondominioGarantidora.bind(null, v.id, false, id)}
+                            titulo="Encerrar vínculo"
+                            descricao={`O vínculo com "${v.garantidora.nome}" será encerrado e o registro mantido no histórico.`}
+                            labelBotao="Encerrar"
+                            icon={<Archive className="h-4 w-4" />}
+                          />
+                        )}
+                      </TableCell>
+                    )}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Histórico de síndicos</CardTitle>
+            <CardDescription>
+              Mandatos registrados automaticamente ao trocar o síndico titular do condomínio
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Nome</TableHead>
+                  <TableHead>Contato</TableHead>
+                  <TableHead>Mandato</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {historicoSindicos.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={3} className="py-8 text-center text-muted-foreground">
+                      Nenhum histórico de síndico registrado ainda.
+                    </TableCell>
+                  </TableRow>
+                )}
+                {historicoSindicos.map((s) => (
+                  <TableRow key={s.id} className={s.ativo ? "" : "opacity-50"}>
+                    <TableCell className="font-medium">{s.nome}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {s.telefone ?? s.email ?? "—"}
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {formatDatePtBR(s.dataInicio)} —{" "}
+                      {s.dataFim ? formatDatePtBR(s.dataFim) : "atual"}
                     </TableCell>
                   </TableRow>
                 ))}
