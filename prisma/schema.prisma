@@ -43,13 +43,15 @@ model Usuario {
   criadoEm      DateTime     @default(now())
   atualizadoEm  DateTime     @updatedAt
 
-  lancamentosCriados             LancamentoFinanceiro[]  @relation("LancamentoCriadoPor")
-  prestacoesPublicadas           PrestacaoContas[]       @relation("PrestacaoPublicadaPor")
-  prestacoesEnviadasAoSindico    PrestacaoContas[]       @relation("PrestacaoEnviadaAoSindicoPor")
-  documentosEnviados             Documento[]             @relation("DocumentoEnviadoPor")
-  movimentosFundoReservaCriados  MovimentoFundoReserva[] @relation("FundoReservaCriadoPor")
-  logsAuditoria                  LogAuditoria[]
-  tokensRecuperacao              TokenRecuperacaoSenha[]
+  lancamentosCriados            LancamentoFinanceiro[]  @relation("LancamentoCriadoPor")
+  prestacoesPublicadas          PrestacaoContas[]       @relation("PrestacaoPublicadaPor")
+  prestacoesEnviadasAoSindico   PrestacaoContas[]       @relation("PrestacaoEnviadaAoSindicoPor")
+  documentosEnviados            Documento[]             @relation("DocumentoEnviadoPor")
+  movimentosFundoReservaCriados MovimentoFundoReserva[] @relation("FundoReservaCriadoPor")
+  previsoesGastosCriadas        PrevisaoGastos[]        @relation("PrevisaoGastosCriadoPor")
+  previsoesGastosPublicadas     PrevisaoGastos[]        @relation("PrevisaoGastosPublicadaPor")
+  logsAuditoria                 LogAuditoria[]
+  tokensRecuperacao             TokenRecuperacaoSenha[]
 
   @@map("usuarios")
 }
@@ -131,6 +133,7 @@ model Condominio {
   titulos          TituloFinanceiro[]
   prestacoesContas PrestacaoContas[]
   fundoReserva     MovimentoFundoReserva[]
+  previsoesGastos  PrevisaoGastos[]
   documentos       Documento[]
   contratos        Contrato[]
   assembleias      Assembleia[]
@@ -390,8 +393,9 @@ model CategoriaFinanceira {
   categoriaPai   CategoriaFinanceira?  @relation("SubcategoriasFinanceiras", fields: [categoriaPaiId], references: [id], onDelete: SetNull)
   subcategorias  CategoriaFinanceira[] @relation("SubcategoriasFinanceiras")
 
-  lancamentos LancamentoFinanceiro[]
-  titulos     TituloFinanceiro[]
+  lancamentos         LancamentoFinanceiro[]
+  titulos             TituloFinanceiro[]
+  itensPrevisaoGastos PrevisaoGastosItem[]
 
   @@unique([nome, tipo])
   @@index([categoriaPaiId])
@@ -488,30 +492,30 @@ enum StatusPrestacaoContas {
 }
 
 model PrestacaoContas {
-  id             String                @id @default(cuid())
-  condominioId   String
-  condominio     Condominio            @relation(fields: [condominioId], references: [id], onDelete: Cascade)
-  competenciaMes Int
-  competenciaAno Int
-  saldoAnterior  Decimal               @default(0) @db.Decimal(12, 2)
-  totalReceitas  Decimal               @default(0) @db.Decimal(12, 2)
-  totalDespesas  Decimal               @default(0) @db.Decimal(12, 2)
-  saldoAtual     Decimal               @default(0) @db.Decimal(12, 2)
-  status         StatusPrestacaoContas @default(RASCUNHO)
-  pdfUrl         String?
-  observacoes    String?
-  publicadoPorId String?
-  publicadoPor   Usuario?              @relation("PrestacaoPublicadaPor", fields: [publicadoPorId], references: [id])
-  publicadoEm    DateTime?
+  id                    String                @id @default(cuid())
+  condominioId          String
+  condominio            Condominio            @relation(fields: [condominioId], references: [id], onDelete: Cascade)
+  competenciaMes        Int
+  competenciaAno        Int
+  saldoAnterior         Decimal               @default(0) @db.Decimal(12, 2)
+  totalReceitas         Decimal               @default(0) @db.Decimal(12, 2)
+  totalDespesas         Decimal               @default(0) @db.Decimal(12, 2)
+  saldoAtual            Decimal               @default(0) @db.Decimal(12, 2)
+  status                StatusPrestacaoContas @default(RASCUNHO)
+  pdfUrl                String?
+  observacoes           String?
+  publicadoPorId        String?
+  publicadoPor          Usuario?              @relation("PrestacaoPublicadaPor", fields: [publicadoPorId], references: [id])
+  publicadoEm           DateTime?
   // Envio automático por e-mail ao síndico (Incremento — antes era manual,
   // fora do sistema). Só é preenchido depois de um envio bem-sucedido de
   // fato (o transporte de e-mail lança erro se GMAIL_APP_PASSWORD não
   // estiver configurado — nunca marca como enviado sem confirmação real).
   enviadoAoSindicoEm    DateTime?
   enviadoAoSindicoPorId String?
-  enviadoAoSindicoPor   Usuario?  @relation("PrestacaoEnviadaAoSindicoPor", fields: [enviadoAoSindicoPorId], references: [id])
-  criadoEm       DateTime              @default(now())
-  atualizadoEm   DateTime              @updatedAt
+  enviadoAoSindicoPor   Usuario?              @relation("PrestacaoEnviadaAoSindicoPor", fields: [enviadoAoSindicoPorId], references: [id])
+  criadoEm              DateTime              @default(now())
+  atualizadoEm          DateTime              @updatedAt
 
   itens PrestacaoContasItem[]
 
@@ -558,6 +562,86 @@ model MovimentoFundoReserva {
 
   @@unique([condominioId, competenciaMes, competenciaAno])
   @@map("movimentos_fundo_reserva")
+}
+
+// Previsão de Gastos (orçamento mensal) — desenhado a partir de documentos
+// reais do Drive (ex.: "PREVISÃO DE GASTOS - COND PRIMAVERA-JULHO.xlsx"):
+// uma planilha publicada ANTES do vencimento (dia 10) com despesas
+// ordinárias e extraordinárias, cada linha com valor total e valor por
+// unidade (rateio) — é o aviso de cobrança por categoria enviado aos
+// condôminos, prospectivo, diferente da Prestação de Contas (retrospectiva,
+// o que de fato aconteceu). Espelha deliberadamente o fluxo RASCUNHO →
+// PUBLICADA de PrestacaoContas (mesma natureza de documento oficial), mas
+// os itens são preenchidos manualmente (não derivados de lançamentos
+// existentes — a previsão é feita ANTES de qualquer lançamento do mês
+// existir).
+enum StatusPrevisaoGastos {
+  RASCUNHO
+  PUBLICADA
+}
+
+enum TipoItemPrevisaoGastos {
+  ORDINARIA
+  EXTRAORDINARIA
+}
+
+model PrevisaoGastos {
+  id                   String               @id @default(cuid())
+  condominioId         String
+  condominio           Condominio           @relation(fields: [condominioId], references: [id], onDelete: Cascade)
+  competenciaMes       Int
+  competenciaAno       Int
+  // Dia-limite de pagamento (ex.: 10) — todas as planilhas reais vistas até
+  // agora usam o dia 10, mas fica configurável por competência em vez de
+  // fixo no código, já que é uma regra do condomínio, não do sistema.
+  diaLimitePagamento   Int?
+  // Sempre recalculados no servidor a partir dos itens — nunca aceitos
+  // diretamente do formulário (mesmo princípio já usado em
+  // MovimentoFundoReserva.saldoFinal).
+  valorTotalGeral      Decimal              @default(0) @db.Decimal(12, 2)
+  valorTotalPorUnidade Decimal              @default(0) @db.Decimal(12, 2)
+  status               StatusPrevisaoGastos @default(RASCUNHO)
+  pdfUrl               String?
+  observacoes          String?
+  criadoPorId          String
+  criadoPor            Usuario              @relation("PrevisaoGastosCriadoPor", fields: [criadoPorId], references: [id])
+  publicadoPorId       String?
+  publicadoPor         Usuario?             @relation("PrevisaoGastosPublicadaPor", fields: [publicadoPorId], references: [id])
+  publicadoEm          DateTime?
+  criadoEm             DateTime             @default(now())
+  atualizadoEm         DateTime             @updatedAt
+
+  itens PrevisaoGastosItem[]
+
+  @@unique([condominioId, competenciaMes, competenciaAno])
+  @@map("previsoes_gastos")
+}
+
+model PrevisaoGastosItem {
+  id              String                 @id @default(cuid())
+  previsaoId      String
+  previsao        PrevisaoGastos         @relation(fields: [previsaoId], references: [id], onDelete: Cascade)
+  // Categoria opcional (não obrigatória): a planilha real tem linhas
+  // ad-hoc (ex.: "REGISTRO ATA EXTRAORDINARIA") que nem sempre mapeiam
+  // limpo para o catálogo de CategoriaFinanceira — a descrição livre é a
+  // fonte da verdade, a categoria é só um enriquecimento para relatórios
+  // quando fizer sentido.
+  categoriaId     String?
+  categoria       CategoriaFinanceira?   @relation(fields: [categoriaId], references: [id])
+  tipo            TipoItemPrevisaoGastos
+  descricao       String
+  valorTotal      Decimal                @db.Decimal(12, 2)
+  // Também recalculado no servidor (valorTotal / qtdUnidades do
+  // condomínio) sempre que qtdUnidades estiver preenchido — mantido como
+  // coluna própria (não computado on-the-fly na leitura) porque o valor
+  // publicado numa previsão já enviada aos condôminos não pode mudar
+  // silenciosamente se qtdUnidades do condomínio for editado depois.
+  valorPorUnidade Decimal?               @db.Decimal(12, 2)
+  observacoes     String?
+  criadoEm        DateTime               @default(now())
+
+  @@index([previsaoId])
+  @@map("itens_previsao_gastos")
 }
 
 // ----------------------------------------------------------------------------
