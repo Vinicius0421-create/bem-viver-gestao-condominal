@@ -88,3 +88,74 @@ export async function enviarEmailRecuperacaoSenha(destinatario: string, nome: st
     `,
   });
 }
+
+// Envio automático da prestação de contas publicada ao síndico do
+// condomínio, substituindo o envio manual (fora do sistema) anteriormente
+// feito pela equipe. Ao contrário de `enviarEmailRecuperacaoSenha` — que
+// degrada silenciosamente para um log em dev/ambiente sem SMTP configurado
+// — esta função lança um erro explícito quando o transporte não está
+// disponível: como este é um ato oficial de prestação de contas ao
+// síndico (e o sistema só marca `enviadoAoSindicoEm` após o envio
+// retornar com sucesso), silenciar o erro faria a interface parecer que o
+// e-mail saiu quando na verdade não saiu.
+export async function enviarEmailPrestacaoContas(params: {
+  destinatario: string;
+  nomeSindico: string;
+  condominio: string;
+  competencia: string;
+  saldoAtual: string;
+  pdfBuffer: Buffer;
+  nomeArquivo: string;
+}) {
+  const { destinatario, nomeSindico, condominio, competencia, saldoAtual, pdfBuffer, nomeArquivo } =
+    params;
+  const transporter = getTransporter();
+
+  if (!transporter) {
+    throw new Error(
+      "Envio de e-mail não está configurado neste ambiente (GMAIL_USER/GMAIL_APP_PASSWORD ausentes). Configure as variáveis no Railway para habilitar o envio."
+    );
+  }
+
+  const primeiroNome = nomeSindico.split(" ")[0];
+
+  await transporter.sendMail({
+    from: `"Bem Viver Assessoria Condominial" <${process.env.GMAIL_USER}>`,
+    to: destinatario,
+    subject: `Prestação de Contas — ${competencia} — ${condominio}`,
+    html: `
+      <div style="font-family: Arial, Helvetica, sans-serif; max-width: 480px; margin: 0 auto; background: #ffffff;">
+        <div style="background: #171310; padding: 28px 32px; text-align: center;">
+          <span style="color: #d9b53f; font-size: 22px; font-weight: bold; letter-spacing: 0.5px;">Bem Viver</span>
+          <div style="color: rgba(255,255,255,0.55); font-size: 12px; margin-top: 2px;">Assessoria Condominial</div>
+        </div>
+        <div style="padding: 32px; color: #171310;">
+          <p style="font-size: 15px; line-height: 1.5;">Olá, ${primeiroNome}.</p>
+          <p style="font-size: 15px; line-height: 1.5;">
+            Segue em anexo a prestação de contas de <strong>${condominio}</strong> referente à
+            competência <strong>${competencia}</strong>, já publicada e disponível oficialmente
+            no sistema da Bem Viver.
+          </p>
+          <div style="background: #f5ecc9; border-radius: 8px; padding: 16px 20px; margin: 24px 0; text-align: center;">
+            <div style="font-size: 12px; color: #6b6656; text-transform: uppercase; letter-spacing: 0.4px;">Saldo atual</div>
+            <div style="font-size: 22px; font-weight: bold; color: #171310; margin-top: 4px;">${saldoAtual}</div>
+          </div>
+          <p style="font-size: 13px; line-height: 1.5; color: #6b6b6b;">
+            O documento em anexo (PDF) contém o detalhamento completo de receitas e despesas
+            consideradas nesta competência. Em caso de dúvidas, entre em contato com a Bem Viver.
+          </p>
+        </div>
+        <div style="padding: 16px 32px; border-top: 1px solid #eee; text-align: center;">
+          <span style="font-size: 11px; color: #9a9a9a;">Bem Viver Assessoria Condominial · (37) 99911-1336</span>
+        </div>
+      </div>
+    `,
+    attachments: [
+      {
+        filename: nomeArquivo,
+        content: pdfBuffer,
+        contentType: "application/pdf",
+      },
+    ],
+  });
+}

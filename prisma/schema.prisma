@@ -45,6 +45,7 @@ model Usuario {
 
   lancamentosCriados             LancamentoFinanceiro[]  @relation("LancamentoCriadoPor")
   prestacoesPublicadas           PrestacaoContas[]       @relation("PrestacaoPublicadaPor")
+  prestacoesEnviadasAoSindico    PrestacaoContas[]       @relation("PrestacaoEnviadaAoSindicoPor")
   documentosEnviados             Documento[]             @relation("DocumentoEnviadoPor")
   movimentosFundoReservaCriados  MovimentoFundoReserva[] @relation("FundoReservaCriadoPor")
   logsAuditoria                  LogAuditoria[]
@@ -502,6 +503,13 @@ model PrestacaoContas {
   publicadoPorId String?
   publicadoPor   Usuario?              @relation("PrestacaoPublicadaPor", fields: [publicadoPorId], references: [id])
   publicadoEm    DateTime?
+  // Envio automático por e-mail ao síndico (Incremento — antes era manual,
+  // fora do sistema). Só é preenchido depois de um envio bem-sucedido de
+  // fato (o transporte de e-mail lança erro se GMAIL_APP_PASSWORD não
+  // estiver configurado — nunca marca como enviado sem confirmação real).
+  enviadoAoSindicoEm    DateTime?
+  enviadoAoSindicoPorId String?
+  enviadoAoSindicoPor   Usuario?  @relation("PrestacaoEnviadaAoSindicoPor", fields: [enviadoAoSindicoPorId], references: [id])
   criadoEm       DateTime              @default(now())
   atualizadoEm   DateTime              @updatedAt
 

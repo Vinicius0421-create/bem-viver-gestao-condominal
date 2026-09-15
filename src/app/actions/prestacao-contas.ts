@@ -11,6 +11,13 @@ import {
   ReabrirPrestacaoSchema,
 } from "@/lib/validations/prestacao-contas";
 import type { ActionState } from "@/app/actions/condominios";
+import { competenciaLabel, formatCurrencyBRL } from "@/lib/utils";
+import {
+  carregarPrestacaoParaPdf,
+  gerarBufferPdfPrestacao,
+  nomeArquivoPdfPrestacao,
+} from "@/lib/pdf/prestacao-contas-pdf";
+import { enviarEmailPrestacaoContas } from "@/lib/email";
 
 // ----------------------------------------------------------------------------
 // Núcleo de cálculo — reutilizado na geração inicial e na recalculagem.
@@ -338,6 +345,58 @@ export async function reabrirPrestacaoContas(
   revalidatePath(`/dashboard/prestacao-de-contas/${id}`);
   revalidatePath("/dashboard/prestacao-de-contas");
   return { success: true };
+}
+
+// Envio automático por e-mail ao síndico (substitui o envio manual, feito
+// até então fora do sistema). Só permitido para prestações já PUBLICADAs —
+// é o documento oficial travado, nunca um rascunho ou versão em revisão —
+// e exige que o condomínio tenha um síndico com e-mail cadastrado. O PDF é
+// gerado a partir dos mesmos dados congelados na publicação (reaproveita o
+// helper usado pela rota de download, nunca duplica o cálculo/mapeamento).
+export async function enviarPrestacaoAoSindico(id: string) {
+  const session = await requireRole("OPERACIONAL");
+
+  const prestacao = await carregarPrestacaoParaPdf(id);
+  if (!prestacao) throw new Error("Prestação de contas não encontrada.");
+  if (prestacao.status !== "PUBLICADA") {
+    throw new Error("Só é possível enviar por e-mail prestações já publicadas.");
+  }
+
+  const sindico = prestacao.condominio.sindico;
+  if (!sindico?.email) {
+    throw new Error(
+      `O condomínio ${prestacao.condominio.nome} não tem um síndico com e-mail cadastrado. Cadastre o e-mail do síndico em Condomínios antes de enviar.`
+    );
+  }
+
+  const buffer = await gerarBufferPdfPrestacao(prestacao);
+  const nomeArquivo = nomeArquivoPdfPrestacao(prestacao);
+  const competencia = competenciaLabel(prestacao.competenciaMes, prestacao.competenciaAno);
+
+  await enviarEmailPrestacaoContas({
+    destinatario: sindico.email,
+    nomeSindico: sindico.nome,
+    condominio: prestacao.condominio.nome,
+    competencia,
+    saldoAtual: formatCurrencyBRL(prestacao.saldoAtual.toString()),
+    pdfBuffer: buffer,
+    nomeArquivo,
+  });
+
+  await prisma.prestacaoContas.update({
+    where: { id },
+    data: { enviadoAoSindicoEm: new Date(), enviadoAoSindicoPorId: session.userId },
+  });
+
+  await registrarAuditoria({
+    usuarioId: session.userId,
+    acao: "ATUALIZACAO",
+    entidade: "PrestacaoContas",
+    entidadeId: id,
+    dadosDepois: { enviadoAoSindicoEm: true, destinatario: sindico.email },
+  });
+
+  revalidatePath(`/dashboard/prestacao-de-contas/${id}`);
 }
 
 export async function excluirPrestacaoContas(id: string) {

@@ -29,6 +29,7 @@ import {
   BotaoEnviarRevisao,
   BotaoVoltarRascunho,
   BotaoPublicar,
+  BotaoEnviarAoSindico,
 } from "@/components/prestacao-contas/workflow-actions";
 import { ReabrirPrestacaoDialog } from "@/components/prestacao-contas/reabrir-prestacao-dialog";
 import { ConfirmActionButton } from "@/components/shared/confirm-action-button";
@@ -82,6 +83,7 @@ export default async function PrestacaoContasDetalhePage({
     include: {
       condominio: true,
       publicadoPor: { select: { nome: true } },
+      enviadoAoSindicoPor: { select: { nome: true } },
       itens: {
         include: {
           lancamento: { include: { categoria: true, fornecedor: true } },
@@ -134,6 +136,12 @@ export default async function PrestacaoContasDetalhePage({
               <p className="mt-1 text-xs text-muted-foreground">
                 Publicada em {formatDatePtBR(prestacao.publicadoEm)}
                 {prestacao.publicadoPor && ` por ${prestacao.publicadoPor.nome}`}
+              </p>
+            )}
+            {prestacao.enviadoAoSindicoEm && (
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Enviada ao síndico por e-mail em {formatDatePtBR(prestacao.enviadoAoSindicoEm)}
+                {prestacao.enviadoAoSindicoPor && ` por ${prestacao.enviadoAoSindicoPor.nome}`}
               </p>
             )}
           </div>
@@ -232,6 +240,9 @@ export default async function PrestacaoContasDetalhePage({
             <BotaoPublicar id={prestacao.id} />
             <BotaoVoltarRascunho id={prestacao.id} />
           </>
+        )}
+        {prestacao.status === "PUBLICADA" && podeEditar && (
+          <BotaoEnviarAoSindico id={prestacao.id} jaEnviado={Boolean(prestacao.enviadoAoSindicoEm)} />
         )}
         {prestacao.status === "PUBLICADA" && podeAdmin && (
           <ReabrirPrestacaoDialog id={prestacao.id} />

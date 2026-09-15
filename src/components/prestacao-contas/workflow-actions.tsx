@@ -2,7 +2,7 @@
 
 import { useTransition } from "react";
 import { toast } from "sonner";
-import { RefreshCw, Send, Undo2, CheckCircle2 } from "lucide-react";
+import { RefreshCw, Send, Undo2, CheckCircle2, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
@@ -20,6 +20,7 @@ import {
   enviarParaRevisao,
   voltarParaRascunho,
   publicarPrestacaoContas,
+  enviarPrestacaoAoSindico,
 } from "@/app/actions/prestacao-contas";
 
 function useAcao(acao: () => Promise<void>) {
@@ -82,6 +83,47 @@ export function BotaoVoltarRascunho({ id }: { id: string }) {
       <Undo2 className="h-4 w-4" />
       {isPending ? "Processando..." : "Devolver para rascunho"}
     </Button>
+  );
+}
+
+export function BotaoEnviarAoSindico({ id, jaEnviado }: { id: string; jaEnviado: boolean }) {
+  const [isPending, startTransition] = useTransition();
+  function executar() {
+    startTransition(async () => {
+      try {
+        await enviarPrestacaoAoSindico(id);
+        toast.success("Prestação de contas enviada ao síndico por e-mail.");
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Não foi possível enviar o e-mail.");
+      }
+    });
+  }
+  return (
+    <AlertDialog>
+      <AlertDialogTrigger asChild>
+        <Button variant="outline" disabled={isPending}>
+          <Mail className="h-4 w-4" />
+          {isPending ? "Enviando..." : jaEnviado ? "Reenviar ao síndico" : "Enviar ao síndico"}
+        </Button>
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>{jaEnviado ? "Reenviar" : "Enviar"} ao síndico por e-mail</AlertDialogTitle>
+          <AlertDialogDescription>
+            O PDF desta prestação de contas será enviado por e-mail ao síndico cadastrado para
+            este condomínio.
+            {jaEnviado &&
+              " Esta prestação já foi enviada anteriormente — o síndico receberá o e-mail novamente."}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+          <AlertDialogAction disabled={isPending} onClick={executar}>
+            {isPending ? "Enviando..." : "Confirmar envio"}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }
 
