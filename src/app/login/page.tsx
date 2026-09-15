@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { connection } from "next/server";
 import { LoginForm } from "@/components/auth/login-form";
 import { Logo, LogoMark } from "@/components/shared/logo";
 
@@ -6,7 +7,14 @@ export const metadata: Metadata = {
   title: "Entrar",
 };
 
-export default function LoginPage() {
+export default async function LoginPage() {
+  // Força renderização dinâmica (ver src/proxy.ts): a CSP com nonce por
+  // requisição só é aplicada ao HTML de páginas renderizadas dinamicamente
+  // — uma página estática (pré-gerada no build) não tem como receber o
+  // nonce do request. Sem isso, o script de hidratação do Next.js é
+  // bloqueado pela CSP e a tela de login fica em branco.
+  await connection();
+
   return (
     <div className="grid min-h-screen w-full lg:grid-cols-2">
       {/* Painel institucional — preto e dourado */}

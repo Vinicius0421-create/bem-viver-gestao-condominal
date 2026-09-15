@@ -1,0 +1,37 @@
+# -- stackhawk configuration for bem-viver-gestao-condominal --
+# Gerado para o scan de seguranca do Incremento 1 (Garantidora + historico de
+# sindico), rodando contra uma instancia LOCAL com banco de teste seedado
+# (nunca contra producao). Ver hawkscan skill / roadmap do projeto.
+app:
+  applicationId: 660f42a5-e0b1-4ea2-bfb5-8f52b464ca8b # (required)
+  env: Development # (required)
+  host: ${APP_HOST:http://localhost:3000} # (required)
+
+  authentication:
+    loggedInIndicator: ".*"
+    loggedOutIndicator: "$^"
+    external:
+      values:
+        - type: COOKIE
+          value:
+            name: bv_session
+            val: ${SESSION_COOKIE}
+    testPath:
+      path: /dashboard
+      type: HEADER
+      fail: "location: /login"
+
+  excludePaths:
+    - "/login"
+    - "/esqueci-senha"
+    - "/redefinir-senha"
+
+tags:
+  - name: _STACKHAWK_AGENT
+    value: ${HAWK_AGENT:none}
+
+hawk:
+  spider:
+    base: true
+    ajax: true
+    maxDurationMinutes: 10

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { connection } from "next/server";
 import { EsqueciSenhaForm } from "@/components/auth/esqueci-senha-form";
 import { Logo } from "@/components/shared/logo";
 
@@ -6,7 +7,11 @@ export const metadata: Metadata = {
   title: "Esqueci minha senha",
 };
 
-export default function EsqueciSenhaPage() {
+export default async function EsqueciSenhaPage() {
+  // Ver comentário equivalente em src/app/login/page.tsx: a CSP com nonce
+  // por requisição exige renderização dinâmica.
+  await connection();
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-8">
       <div className="w-full max-w-sm">

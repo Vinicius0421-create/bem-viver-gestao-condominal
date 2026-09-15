@@ -42,3 +42,6 @@ yarn-error.log*
 next-env.d.ts
 
 /src/generated/prisma
+
+# scratch de sessão (scripts/artefatos locais de depuração, nunca deliverable)
+/.scratch/
